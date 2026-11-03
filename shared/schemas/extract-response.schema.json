@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aicrawl.dev/schemas/extract-response.schema.json",
+  "title": "AICrawl extract response",
+  "description": "Response envelope for POST /api/v1/extract. Failures use { success: false, error: { code, message, retryable } }.",
+  "type": "object",
+  "required": ["success", "data"],
+  "properties": {
+    "success": { "type": "boolean", "const": true },
+    "data": {
+      "type": "object",
+      "required": ["job", "result", "outcome"],
+      "properties": {
+        "job": {
+          "type": "object",
+          "required": ["id", "status", "url"],
+          "properties": {
+            "id": { "type": "string" },
+            "status": {
+              "type": "string",
+              "enum": ["queued", "running", "succeeded", "failed", "cancelled"]
+            },
+            "url": { "type": "string" },
+            "pages_crawled": { "type": "integer" },
+            "created_at": { "type": "string" }
+          }
+        },
+        "result": {
+          "type": "object",
+          "required": ["id", "mode", "data", "validated"],
+          "properties": {
+            "id": { "type": "string" },
+            "mode": { "type": "string", "enum": ["deterministic", "ai"] },
+            "validated": { "type": "boolean" },
+            "data": {},
+            "warnings": { "type": "array", "items": { "type": "string" } },
+            "provider": { "type": ["string", "null"] }
+          }
+        },
+        "outcome": {
+          "type": "object",
+          "required": ["mode", "format", "data", "output", "page"],
+          "properties": {
+            "mode": { "type": "string", "enum": ["deterministic", "ai"] },
+            "format": { "type": "string" },
+            "data": {},
+            "output": { "type": "string" },
+            "warnings": { "type": "array", "items": { "type": "string" } },
+            "validated": { "type": "boolean" },
+            "duration_ms": { "type": "integer" },
+            "fetch_ms": { "type": "integer" },
+            "page": {
+              "type": "object",
+              "properties": {
+                "final_url": { "type": "string" },
+                "status": { "type": "integer" },
+                "content_type": { "type": "string" },
+                "title": { "type": ["string", "null"] },
+                "word_count": { "type": "integer" },
+                "truncated": { "type": "boolean" },
+                "from_cache": { "type": "boolean" },
+                "rendered": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

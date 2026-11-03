@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aicrawl.dev/schemas/extract-request.schema.json",
+  "title": "AICrawl extract request",
+  "description": "Body for POST /api/v1/extract and the request accepted by `aicrawl extract`.",
+  "type": "object",
+  "required": ["url", "query"],
+  "additionalProperties": false,
+  "properties": {
+    "url": {
+      "type": "string",
+      "format": "uri",
+      "description": "Absolute http(s) URL to fetch. Subject to SSRF, domain and robots.txt policy."
+    },
+    "query": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Natural-language description of the data to extract."
+    },
+    "schema": {
+      "description": "Optional JSON Schema the extracted payload must validate against.",
+      "type": "object"
+    },
+    "output_format": {
+      "type": "string",
+      "enum": ["json", "markdown", "text"],
+      "default": "json"
+    },
+    "use_ai": {
+      "type": "boolean",
+      "default": true,
+      "description": "Use the configured external AI provider when semantic extraction is needed. Deterministic extraction remains available without it."
+    },
+    "render": {
+      "type": "boolean",
+      "default": false,
+      "description": "Render JavaScript through the optional Playwright bridge."
+    },
+    "use_cache": {
+      "type": "boolean",
+      "default": true
+    }
+  }
+}

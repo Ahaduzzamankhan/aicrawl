@@ -1,0 +1,48 @@
+[workspace]
+resolver = "2"
+members = ["crates/aicrawl-core", "crates/aicrawl-cli"]
+
+[workspace.package]
+version = "0.0.1-experimental.1"
+edition = "2021"
+rust-version = "1.88"
+license = "MIT"
+authors = ["AICrawl Contributors"]
+repository = "https://github.com/Ahaduzzamankhan/aicrawl"
+
+[workspace.dependencies]
+aicrawl-core = { path = "crates/aicrawl-core", version = "0.0.1-experimental.1" }
+anyhow = "1.0"
+async-trait = "0.1"
+axum = "0.8"
+base64 = "0.22"
+chacha20poly1305 = "0.10"
+clap = { version = "4.5", features = ["derive", "env", "wrap_help"] }
+encoding_rs = "0.8"
+futures-util = "0.3"
+getrandom = "0.2"
+http = "1"
+indicatif = "0.18"
+jsonschema = "0.60"
+mime = "0.3"
+owo-colors = { version = "4.4", features = ["supports-colors"] }
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["native-tls", "gzip", "brotli", "json", "charset", "http2", "stream"] }
+rmcp = { version = "3.8", features = ["server", "macros", "transport-io", "transport-streamable-http-server", "schemars"] }
+scraper = "0.29"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+sha2 = "0.10"
+sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite", "migrate", "macros", "json"] }
+thiserror = "2"
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+toml = "0.9"
+tower = "0.5"
+tower-http = { version = "0.7", features = ["cors", "trace", "fs", "limit", "set-header"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+url = "2"
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+tempfile = "3"

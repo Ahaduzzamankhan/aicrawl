@@ -1,0 +1,14 @@
+{
+  "name": "aicrawl-playwright-bridge",
+  "private": true,
+  "version": "0.0.1-experimental.1",
+  "type": "module",
+  "description": "Optional Playwright rendering bridge for AICrawl",
+  "scripts": {
+    "install-browser": "playwright install chromium",
+    "check": "node -e \"import('playwright').then(()=>console.log('playwright ready'))\""
+  },
+  "dependencies": {
+    "playwright": "^1.64.0"
+  }
+}

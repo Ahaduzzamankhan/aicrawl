@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aicrawl.dev/schemas/product-list.schema.json",
+  "title": "Product list extraction",
+  "description": "Example schema for `aicrawl extract <url> --query \"Extract products\" --schema shared/schemas/product-list.schema.json`.",
+  "type": "object",
+  "required": ["products"],
+  "additionalProperties": true,
+  "properties": {
+    "products": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "price": { "type": ["string", "number", "null"] },
+          "currency": { "type": ["string", "null"] },
+          "description": { "type": ["string", "null"] },
+          "url": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

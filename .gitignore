@@ -1,0 +1,39 @@
+# Rust
+/target
+/target-gnu
+**/*.rs.bk
+.aicrawl-check*.log
+
+# Locally provisioned toolchain (not part of the project)
+/.tools/
+
+# Local runtime data (SQLite, keys, PID, logs)
+/.aicrawl/
+/.aicrawl-*/
+/.aicrawl-*.log
+*.db
+*.db-shm
+*.db-wal
+aicrawl.pid
+aicrawl.log
+secret.key
+
+# Dashboard
+/frontend/node_modules
+/frontend/dist
+/frontend/.vite
+
+# Playwright bridge
+/browser/node_modules
+/browser/package-lock.json
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Editors / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

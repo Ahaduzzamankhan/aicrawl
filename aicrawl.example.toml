@@ -1,0 +1,62 @@
+# AICrawl configuration example.
+# Copy to ~/.aicrawl/config.toml (or pass --config <path>) and edit.
+# Provider API keys are NOT stored here: AICrawl keeps them encrypted in SQLite.
+
+[server]
+api_host = "127.0.0.1" # bind to 127.0.0.1 unless you put a proxy in front
+api_port = 8080        # REST API + embedded dashboard
+mcp_host = "127.0.0.1"
+mcp_port = 8787        # MCP streamable HTTP endpoint at /mcp
+
+[crawler]
+max_pages = 10
+max_depth = 2
+concurrency = 4
+timeout_ms = 15000
+max_body_bytes = 3145728 # 3 MiB
+max_text_chars = 60000
+max_crawl_secs = 180
+# Change the contact URL to your own deployment when you fork AICrawl.
+user_agent = "AICrawl/0.0.1-experimental.1 (+https://github.com/Ahaduzzamankhan/aicrawl; AI extraction bot)"
+respect_robots_txt = true
+same_domain = true
+
+[security]
+# SSRF protection: keep false. Only enable for controlled local testing.
+allow_private_networks = false
+# When non-empty, only these domains and their subdomains may be crawled.
+allowed_domains = []
+blocked_domains = []
+max_redirects = 5
+rate_limit_per_minute = 60
+allow_http = true
+
+[ai]
+# AICrawl bundles no model. Semantic extraction is optional: without a provider,
+# extraction is deterministic and MCP returns page content for the calling agent
+# to reason over. This section is only an environment fallback; providers saved
+# in the dashboard/API take precedence.
+api_key_env = "OPENAI_API_KEY"
+base_url = "https://api.openai.com/v1"
+model = "gpt-4o-mini"
+kind = "openai_compatible"
+max_input_chars = 24000
+max_output_tokens = 1500
+temperature = 0.0
+timeout_secs = 60
+
+[storage]
+# Defaults to <data-dir>/aicrawl.db
+# database_path = "/absolute/path/to/aicrawl.db"
+max_connections = 5
+
+[cache]
+enabled = true
+ttl_secs = 3600
+max_entries = 500
+
+[api]
+require_api_key = false # set true when binding beyond loopback
+cors_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+request_timeout_secs = 120
+# dashboard_dist = "frontend/dist"  # only for dashboard development
