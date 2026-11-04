@@ -780,8 +780,8 @@ mod tests {
             ("\"off\"", RenderMode::Off),
             ("\"never\"", RenderMode::Off),
             ("\"always\"", RenderMode::On),
-            ("true", RenderMode::On),
-            ("false", RenderMode::Off),
+            ("\"true\"", RenderMode::On),
+            ("\"false\"", RenderMode::Off),
         ] {
             let parsed: RenderMode = serde_json::from_str(raw).unwrap();
             assert_eq!(parsed, expected, "{raw}");

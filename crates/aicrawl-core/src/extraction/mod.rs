@@ -210,11 +210,14 @@ fn node_value(
             raw.map(|value| transform::absolutize(&value, ctx.base))
         }
         _ => match node.element() {
-            Some(element) => Some(if rule.trim == Some(false) {
-                selectors::raw_text_of(&element)
-            } else {
-                selectors::text_of(&element)
-            }),
+            Some(element) => match rule.attribute.as_deref() {
+                Some(name) => selectors::attribute_of(&element, name),
+                None => Some(if rule.trim == Some(false) {
+                    selectors::raw_text_of(&element)
+                } else {
+                    selectors::text_of(&element)
+                }),
+            },
             None => node.literal().map(str::to_string),
         },
     };

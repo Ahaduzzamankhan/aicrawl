@@ -662,7 +662,9 @@ mod tests {
             HeaderValue::from_static("Bearer ac_live_x"),
         );
         assert_eq!(bearer(&headers).as_deref(), Some("ac_live_x"));
-        headers.insert("x-api-key", HeaderValue::from_static(" ac_live_y "));
-        assert_eq!(bearer(&headers).as_deref(), Some("ac_live_y"));
+
+        let mut keyed = HeaderMap::new();
+        keyed.insert("x-api-key", HeaderValue::from_static(" ac_live_y "));
+        assert_eq!(bearer(&keyed).as_deref(), Some("ac_live_y"));
     }
 }

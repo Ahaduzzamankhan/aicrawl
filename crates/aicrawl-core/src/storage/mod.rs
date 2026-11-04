@@ -502,7 +502,7 @@ impl SqliteStore {
         let now = now_rfc3339();
         sqlx::query(
             "INSERT INTO crawl_pages (id, job_id, url, depth, status_code, title, content_type, text_length, content_hash, word_count, fetched_at, error)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (job_id, url) DO UPDATE SET
                 status_code = excluded.status_code,
                 title = excluded.title,
