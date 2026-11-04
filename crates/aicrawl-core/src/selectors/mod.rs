@@ -95,7 +95,7 @@ pub fn parse_html_document(body: &str) -> Html {
 
 /// Raw concatenated text of an element, with whitespace runs collapsed.
 pub fn text_of(element: &ElementRef<'_>) -> String {
-    collapse(element.text().collect::<Vec<_>>().join(" "))
+    collapse(&element.text().collect::<Vec<_>>().join(" "))
 }
 
 /// Text without whitespace normalisation.
@@ -133,13 +133,24 @@ pub fn collapse(input: &str) -> String {
 /// left intact but without values. The result is data, never markup to execute.
 pub fn inner_html(element: &ElementRef<'_>) -> String {
     let mut out = String::new();
-    for child in element.children() {
-        serialize_node(child, &mut out);
-    }
+    serialize_children(element, &mut out);
     sanitize_html(&out)
 }
 
-fn serialize_node(node: ElementRef<'_>, out: &mut String) {
+fn serialize_children(element: &ElementRef<'_>, out: &mut String) {
+    for child in element.children() {
+        match child.value() {
+            scraper::Node::Text(text) => out.push_str(&escape_text(text)),
+            _ => {
+                if let Some(element) = ElementRef::wrap(child) {
+                    serialize_node(&element, out);
+                }
+            }
+        }
+    }
+}
+
+fn serialize_node(node: &ElementRef<'_>, out: &mut String) {
     let value = node.value();
     let name = value.name();
     if is_dropped_element(name) {
@@ -148,7 +159,6 @@ fn serialize_node(node: ElementRef<'_>, out: &mut String) {
     out.push('<');
     out.push_str(name);
     for (attr_name, attr_value) in value.attrs() {
-        let attr_name = attr_name;
         if attr_name.starts_with("on") || attr_value.trim_start().starts_with("javascript:") {
             continue;
         }
@@ -162,12 +172,17 @@ fn serialize_node(node: ElementRef<'_>, out: &mut String) {
     if is_void_element(name) {
         return;
     }
-    for child in node.children() {
-        serialize_node(child, out);
-    }
+    serialize_children(node, out);
     out.push_str("</");
     out.push_str(name);
     out.push('>');
+}
+
+fn escape_text(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 fn is_dropped_element(name: &str) -> bool {
@@ -437,7 +452,8 @@ impl Expr {
                         apply_predicates(&mut candidates, step);
                         next.extend(candidates);
                     } else {
-                        let mut candidates: Vec<ElementRef<'a>> = base.children().collect();
+                        let mut candidates: Vec<ElementRef<'a>> =
+                            base.children().filter_map(ElementRef::wrap).collect();
                         keep_matching(&mut candidates, step);
                         apply_predicates(&mut candidates, step);
                         next.extend(candidates);
@@ -458,7 +474,8 @@ impl Expr {
                     apply_predicates(&mut candidates, step);
                     next.extend(candidates);
                 } else {
-                    let mut candidates: Vec<ElementRef<'a>> = base.children().collect();
+                    let mut candidates: Vec<ElementRef<'a>> =
+                        base.children().filter_map(ElementRef::wrap).collect();
                     keep_matching(&mut candidates, step);
                     apply_predicates(&mut candidates, step);
                     next.extend(candidates);
@@ -697,7 +714,7 @@ fn apply_predicates(elements: &mut Vec<ElementRef<'_>>, step: &Step) {
 }
 
 fn collect_descendants<'a>(element: ElementRef<'a>, out: &mut Vec<ElementRef<'a>>) {
-    for child in element.children() {
+    for child in element.children().filter_map(ElementRef::wrap) {
         out.push(child);
         collect_descendants(child, out);
     }

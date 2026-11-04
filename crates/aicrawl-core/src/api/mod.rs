@@ -121,6 +121,12 @@ impl From<AicrawlError> for ApiError {
     }
 }
 
+impl From<sqlx::Error> for ApiError {
+    fn from(err: sqlx::Error) -> Self {
+        Self::from_error(&AicrawlError::from(err))
+    }
+}
+
 impl IntoResponse for ApiError {
     fn into_response(self) -> AxumResponse {
         (self.status, Json(self.payload)).into_response()

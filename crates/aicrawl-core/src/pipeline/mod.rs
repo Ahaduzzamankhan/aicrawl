@@ -431,7 +431,7 @@ mod tests {
             "https://example.com/1",
             json!({"items": [{"name": "a"}, {"name": "b"}]}),
         );
-        let second = sample(
+        let mut second = sample(
             "https://example.com/2",
             json!({"items": [{"name": "b"}, {"name": "c"}]}),
         );
