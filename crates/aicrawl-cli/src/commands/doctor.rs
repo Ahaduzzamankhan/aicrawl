@@ -82,8 +82,7 @@ pub async fn run(ctx: &Ctx, args: DoctorArgs) -> Result<()> {
     if let Some(engine) = engine.as_ref() {
         checks.push(Check {
             name: "secret store",
-            ok: engine.secrets().key_path().exists()
-                || std::env::var("AICRAWL_SECRET_KEY").is_ok(),
+            ok: engine.secrets().key_path().exists() || std::env::var("AICRAWL_SECRET_KEY").is_ok(),
             critical: false,
             detail: engine.secrets().key_path().display().to_string(),
         });
@@ -240,7 +239,9 @@ pub async fn run(ctx: &Ctx, args: DoctorArgs) -> Result<()> {
         println!(
             "  {} {}",
             theme.arrow(),
-            theme.dim("AI extraction is optional: deterministic extraction works without a provider.")
+            theme.dim(
+                "AI extraction is optional: deterministic extraction works without a provider."
+            )
         );
     }
 

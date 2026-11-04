@@ -141,11 +141,8 @@ impl AicrawlEngine {
             .unwrap_or_else(crate::config::data_dir);
         ensure_data_dir(&data_dir)?;
 
-        let store = SqliteStore::connect(
-            &database_path,
-            config.storage.max_connections.max(5),
-        )
-        .await?;
+        let store =
+            SqliteStore::connect(&database_path, config.storage.max_connections.max(5)).await?;
         let secrets = SecretStore::open(&data_dir)?;
         let fetcher = Arc::new(Fetcher::new(
             config.crawler.clone(),
@@ -234,10 +231,7 @@ impl AicrawlEngine {
                 url: url.to_string(),
                 query: Some(request.query.clone()),
                 output_format: request.output_format.clone(),
-                schema_json: request
-                    .schema
-                    .as_ref()
-                    .map(|schema| schema.to_string()),
+                schema_json: request.schema.as_ref().map(|schema| schema.to_string()),
                 max_pages: None,
                 max_depth: None,
                 meta_json: None,
@@ -290,7 +284,10 @@ impl AicrawlEngine {
     /// Validates crawl options and creates a queued crawl job.
     pub async fn create_crawl_job(&self, options: &CrawlOptions) -> Result<CrawlJob> {
         let (url, max_pages, max_depth) = options.validate()?;
-        self.inner.fetcher.policy().validate_syntax(&url)?;        self.inner.store.create_job(NewJob {
+        self.inner.fetcher.policy().validate_syntax(&url)?;
+        self.inner
+            .store
+            .create_job(NewJob {
                 kind: JobKind::Crawl,
                 url: url.to_string(),
                 query: options.query.clone(),
@@ -335,11 +332,7 @@ impl AicrawlEngine {
             cancels.insert(job_id.to_string(), token.clone());
         }
 
-        let result = self
-            .inner
-            .crawler
-            .run(job_id, &options, token, sink)
-            .await;
+        let result = self.inner.crawler.run(job_id, &options, token, sink).await;
 
         {
             let mut cancels = self
@@ -554,12 +547,11 @@ impl AicrawlEngine {
     pub async fn health(&self) -> Value {
         let database = match self.inner.store.ping().await {
             Ok(()) => json!({"ok": true, "path": self.inner.store.location(), "error": null}),
-            Err(err) => json!({"ok": false, "path": self.inner.store.location(), "error": err.to_string()}),
+            Err(err) => {
+                json!({"ok": false, "path": self.inner.store.location(), "error": err.to_string()})
+            }
         };
-        let db_ok = database
-            .get("ok")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
+        let db_ok = database.get("ok").and_then(Value::as_bool).unwrap_or(false);
         let stats = self.inner.store.stats().await.unwrap_or_default();
         let cache_entries = self.inner.store.cache_entries().await.unwrap_or(0);
         let ai = self.inner.ai.status().await;

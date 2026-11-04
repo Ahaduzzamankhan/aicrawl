@@ -210,11 +210,9 @@ impl Fetcher {
                     .headers()
                     .get(reqwest::header::LOCATION)
                     .and_then(|value| value.to_str().ok())
-                    .ok_or_else(|| {
-                        AicrawlError::Http {
-                            status: status.as_u16(),
-                            url: current.to_string(),
-                        }
+                    .ok_or_else(|| AicrawlError::Http {
+                        status: status.as_u16(),
+                        url: current.to_string(),
                     })?;
                 let next = current.join(location).map_err(|e| {
                     AicrawlError::InvalidInput(format!(

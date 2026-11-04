@@ -8,9 +8,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
-use sqlx::sqlite::{
-    SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous,
-};
+use sqlx::sqlite::{SqliteConnectOptions, SqliteJournalMode, SqlitePoolOptions, SqliteSynchronous};
 use sqlx::SqlitePool;
 
 use crate::error::{AicrawlError, Result};
@@ -526,7 +524,11 @@ impl SqliteStore {
         if let Some(status) = status {
             query = query.bind(status.to_string());
         }
-        let jobs = query.bind(limit).bind(offset.max(0)).fetch_all(&self.pool).await?;
+        let jobs = query
+            .bind(limit)
+            .bind(offset.max(0))
+            .fetch_all(&self.pool)
+            .await?;
         Ok(jobs)
     }
 
@@ -583,9 +585,7 @@ impl SqliteStore {
         .bind(&new.error)
         .execute(&self.pool)
         .await?;
-        let sql = format!(
-            "SELECT {PAGE_COLUMNS} FROM crawl_pages WHERE job_id = ? AND url = ?"
-        );
+        let sql = format!("SELECT {PAGE_COLUMNS} FROM crawl_pages WHERE job_id = ? AND url = ?");
         let page = sqlx::query_as::<_, CrawlPage>(sqlx::AssertSqlSafe(sql))
             .bind(&new.job_id)
             .bind(&new.url)
@@ -596,8 +596,9 @@ impl SqliteStore {
 
     /// Lists every page recorded for a job.
     pub async fn list_pages(&self, job_id: &str) -> Result<Vec<CrawlPage>> {
-        let sql =
-            format!("SELECT {PAGE_COLUMNS} FROM crawl_pages WHERE job_id = ? ORDER BY depth, fetched_at");
+        let sql = format!(
+            "SELECT {PAGE_COLUMNS} FROM crawl_pages WHERE job_id = ? ORDER BY depth, fetched_at"
+        );
         let pages = sqlx::query_as::<_, CrawlPage>(sqlx::AssertSqlSafe(sql))
             .bind(job_id)
             .fetch_all(&self.pool)
@@ -888,13 +889,12 @@ impl SqliteStore {
 
     /// Revokes a key. Returns true when a live key was revoked.
     pub async fn revoke_api_key(&self, id: &str) -> Result<bool> {
-        let result = sqlx::query(
-            "UPDATE api_keys SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL",
-        )
-        .bind(now_rfc3339())
-        .bind(id)
-        .execute(&self.pool)
-        .await?;
+        let result =
+            sqlx::query("UPDATE api_keys SET revoked_at = ? WHERE id = ? AND revoked_at IS NULL")
+                .bind(now_rfc3339())
+                .bind(id)
+                .execute(&self.pool)
+                .await?;
         Ok(result.rows_affected() > 0)
     }
 
@@ -945,8 +945,7 @@ impl SqliteStore {
 
     /// Fetches a provider by id.
     pub async fn get_provider(&self, id: &str) -> Result<Option<AiProviderRecord>> {
-        let sql =
-            format!("SELECT {PROVIDER_COLUMNS} FROM ai_providers WHERE id = ?");
+        let sql = format!("SELECT {PROVIDER_COLUMNS} FROM ai_providers WHERE id = ?");
         let row = sqlx::query_as::<_, AiProviderRecord>(sqlx::AssertSqlSafe(sql))
             .bind(id)
             .fetch_optional(&self.pool)
@@ -967,9 +966,8 @@ impl SqliteStore {
 
     /// Returns the default provider, if one is configured.
     pub async fn default_provider(&self) -> Result<Option<AiProviderRecord>> {
-        let sql = format!(
-            "SELECT {PROVIDER_COLUMNS} FROM ai_providers WHERE is_default = 1 LIMIT 1"
-        );
+        let sql =
+            format!("SELECT {PROVIDER_COLUMNS} FROM ai_providers WHERE is_default = 1 LIMIT 1");
         let row = sqlx::query_as::<_, AiProviderRecord>(sqlx::AssertSqlSafe(sql))
             .fetch_optional(&self.pool)
             .await?;
@@ -1070,7 +1068,9 @@ impl SqliteStore {
 
     /// Empties the page cache.
     pub async fn clear_cache(&self) -> Result<()> {
-        sqlx::query("DELETE FROM page_cache").execute(&self.pool).await?;
+        sqlx::query("DELETE FROM page_cache")
+            .execute(&self.pool)
+            .await?;
         Ok(())
     }
 
@@ -1203,7 +1203,15 @@ mod tests {
         let fetched = store.get_job(&job.id).await.unwrap().unwrap();
         assert_eq!(fetched.status, job_status::SUCCEEDED);
         assert!(fetched.finished_at.is_some());
-        assert_eq!(store.latest_result_for_job(&job.id).await.unwrap().unwrap().id, saved.id);
+        assert_eq!(
+            store
+                .latest_result_for_job(&job.id)
+                .await
+                .unwrap()
+                .unwrap()
+                .id,
+            saved.id
+        );
         let stats = store.stats().await.unwrap();
         assert_eq!(stats.results_total, 1);
         assert_eq!(stats.jobs_succeeded, 1);
@@ -1349,7 +1357,11 @@ mod tests {
             })
             .await
             .unwrap();
-        assert!(store.get_cached_page("https://example.com/").await.unwrap().is_some());
+        assert!(store
+            .get_cached_page("https://example.com/")
+            .await
+            .unwrap()
+            .is_some());
         store
             .put_cached_page(NewCacheEntry {
                 url: "https://example.com/".into(),
@@ -1363,11 +1375,18 @@ mod tests {
             })
             .await
             .unwrap();
-        assert!(store.get_cached_page("https://example.com/").await.unwrap().is_none());
+        assert!(store
+            .get_cached_page("https://example.com/")
+            .await
+            .unwrap()
+            .is_none());
         assert_eq!(store.cache_entries().await.unwrap(), 1);
 
         store.set_setting("theme", "dark").await.unwrap();
-        assert_eq!(store.get_setting("theme").await.unwrap().as_deref(), Some("dark"));
+        assert_eq!(
+            store.get_setting("theme").await.unwrap().as_deref(),
+            Some("dark")
+        );
         assert_eq!(store.all_settings().await.unwrap().len(), 1);
     }
 }

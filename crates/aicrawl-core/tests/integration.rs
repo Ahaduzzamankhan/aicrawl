@@ -37,7 +37,10 @@ const SECOND: &str = r#"<html><head><title>Second</title></head>
 
 async fn spawn_site() -> SocketAddr {
     let app = Router::new()
-        .route("/", get(|| async { ([("content-type", "text/html")], HOME) }))
+        .route(
+            "/",
+            get(|| async { ([("content-type", "text/html")], HOME) }),
+        )
         .route(
             "/second",
             get(|| async { ([("content-type", "text/html")], SECOND) }),

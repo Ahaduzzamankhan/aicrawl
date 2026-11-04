@@ -86,20 +86,8 @@ fn noise_regexes() -> &'static Vec<Regex> {
     static REGEXES: OnceLock<Vec<Regex>> = OnceLock::new();
     REGEXES.get_or_init(|| {
         [
-            "script",
-            "style",
-            "noscript",
-            "template",
-            "svg",
-            "canvas",
-            "iframe",
-            "object",
-            "embed",
-            "form",
-            "nav",
-            "footer",
-            "aside",
-            "header",
+            "script", "style", "noscript", "template", "svg", "canvas", "iframe", "object",
+            "embed", "form", "nav", "footer", "aside", "header",
         ]
         .iter()
         .map(|tag| {
@@ -119,8 +107,7 @@ fn price_regexes() -> &'static (Regex, Regex) {
             // $12.99 / € 1 299,00 (no thousands separator support beyond comma)
             Regex::new(r"(?i)([$€£¥₹])\s?(\d[\d.,]*)").unwrap(),
             // 12.99 USD / 12,99 EUR
-            Regex::new(r"(?i)\b(\d[\d.,]*)\s?(USD|EUR|GBP|JPY|INR|CAD|AUD|CHF|SEK|BRL)\b")
-                .unwrap(),
+            Regex::new(r"(?i)\b(\d[\d.,]*)\s?(USD|EUR|GBP|JPY|INR|CAD|AUD|CHF|SEK|BRL)\b").unwrap(),
         )
     })
 }
@@ -164,14 +151,22 @@ pub fn parse_html(url: &Url, html: &str, max_chars: usize) -> ParsedPage {
         if let (Some(key), Some(content)) = (key, content) {
             let key = key.trim().to_ascii_lowercase();
             if !key.is_empty() && !content.trim().is_empty() {
-                meta.entry(key).or_insert_with(|| collapse_whitespace(content));
+                meta.entry(key)
+                    .or_insert_with(|| collapse_whitespace(content));
             }
         }
     }
 
     let mut headings = Vec::new();
     for element in document.select(&selector("h1, h2, h3, h4, h5, h6")) {
-        let level = element.value().name().as_bytes().get(1).copied().unwrap_or(b'0') - b'0';
+        let level = element
+            .value()
+            .name()
+            .as_bytes()
+            .get(1)
+            .copied()
+            .unwrap_or(b'0')
+            - b'0';
         let text = element_text(&element);
         if !text.is_empty() {
             headings.push(Heading {
@@ -185,8 +180,7 @@ pub fn parse_html(url: &Url, html: &str, max_chars: usize) -> ParsedPage {
     let images = extract_images(&document, &base);
     let json_ld = extract_json_ld(&document);
     let tables = extract_tables(&document);
-    let (text, markdown, word_count, truncated) =
-        readable_text(&document, max_chars, &headings);
+    let (text, markdown, word_count, truncated) = readable_text(&document, max_chars, &headings);
     let prices = extract_prices(&text);
 
     ParsedPage {
@@ -297,7 +291,10 @@ fn extract_links(document: &Html, base: &Url) -> Vec<PageLink> {
         let rel = element.value().attr("rel").map(|r| r.trim().to_string());
         links.push(PageLink {
             url: key,
-            text: collapse_whitespace(&element_text(&element)).chars().take(200).collect(),
+            text: collapse_whitespace(&element_text(&element))
+                .chars()
+                .take(200)
+                .collect(),
             rel,
         });
         if links.len() >= 500 {
@@ -384,10 +381,7 @@ fn extract_tables(document: &Html) -> Vec<Table> {
         if headers.is_empty() {
             if let Some(first) = element.select(&selector("tr")).next() {
                 let cells = header_cells(&first);
-                let looks_like_header = first
-                    .select(&selector("th"))
-                    .next()
-                    .is_some();
+                let looks_like_header = first.select(&selector("th")).next().is_some();
                 if looks_like_header {
                     headers = cells;
                 }
@@ -496,7 +490,10 @@ fn extract_prices(text: &str) -> Vec<PriceMention> {
             continue;
         }
         prices.push(PriceMention {
-            text: captures.get(0).map(|m| m.as_str().to_string()).unwrap_or_default(),
+            text: captures
+                .get(0)
+                .map(|m| m.as_str().to_string())
+                .unwrap_or_default(),
             amount,
             currency: Some(symbol_text.to_string()),
         });
@@ -515,7 +512,10 @@ fn extract_prices(text: &str) -> Vec<PriceMention> {
             continue;
         }
         prices.push(PriceMention {
-            text: captures.get(0).map(|m| m.as_str().to_string()).unwrap_or_default(),
+            text: captures
+                .get(0)
+                .map(|m| m.as_str().to_string())
+                .unwrap_or_default(),
             amount,
             currency,
         });
@@ -548,7 +548,10 @@ fn parse_amount(raw: &str) -> Option<f64> {
     } else {
         cleaned.to_string()
     };
-    candidate.parse::<f64>().ok().filter(|v| v.is_finite() && *v >= 0.0)
+    candidate
+        .parse::<f64>()
+        .ok()
+        .filter(|v| v.is_finite() && *v >= 0.0)
 }
 
 #[cfg(test)]
@@ -595,7 +598,10 @@ mod tests {
         assert_eq!(page.title.as_deref(), Some("Example Store"));
         assert_eq!(page.description.as_deref(), Some("Buy things"));
         assert_eq!(page.lang.as_deref(), Some("en"));
-        assert!(page.headings.iter().any(|h| h.text == "Widget" && h.level == 2));
+        assert!(page
+            .headings
+            .iter()
+            .any(|h| h.text == "Widget" && h.level == 2));
         assert_eq!(page.links[0].url, "https://example.com/menu");
         assert!(page.links.iter().any(|l| l.url.ends_with("/products/2")));
         assert_eq!(page.images[0].alt.as_deref(), Some("Widget"));
@@ -606,7 +612,10 @@ mod tests {
         assert!(!page.text.contains("console.log"));
         assert!(!page.text.contains("color:red"));
         assert!(!page.text.contains("Copyright"));
-        assert!(page.prices.iter().any(|p| (p.amount - 19.99).abs() < f64::EPSILON));
+        assert!(page
+            .prices
+            .iter()
+            .any(|p| (p.amount - 19.99).abs() < f64::EPSILON));
     }
 
     #[test]

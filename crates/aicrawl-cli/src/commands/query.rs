@@ -75,8 +75,16 @@ pub async fn jobs(ctx: &Ctx, args: JobsArgs) -> Result<()> {
         &rows,
     );
     terminal::section(&theme, "Hints");
-    println!("  {} {}", theme.arrow(), theme.dim("aicrawl jobs --status succeeded"));
-    println!("  {} {}", theme.arrow(), theme.dim("aicrawl results --job <job-id>"));
+    println!(
+        "  {} {}",
+        theme.arrow(),
+        theme.dim("aicrawl jobs --status succeeded")
+    );
+    println!(
+        "  {} {}",
+        theme.arrow(),
+        theme.dim("aicrawl results --job <job-id>")
+    );
     Ok(())
 }
 
@@ -196,10 +204,7 @@ pub async fn results(ctx: &Ctx, args: ResultsArgs) -> Result<()> {
     }
 
     terminal::print_banner(&theme);
-    terminal::section(
-        &theme,
-        &format!("Results ({} shown)", results.len()),
-    );
+    terminal::section(&theme, &format!("Results ({} shown)", results.len()));
     let rows: Vec<Vec<String>> = results
         .iter()
         .map(|result| {

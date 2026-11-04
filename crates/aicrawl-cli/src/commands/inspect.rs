@@ -73,14 +73,22 @@ pub async fn run(ctx: &Ctx, args: InspectArgs) -> Result<()> {
 
     terminal::section(&theme, "Structure");
     terminal::kv(&theme, "headings", report.headings.len());
-    terminal::kv(&theme, "links", format!("{} ({} sampled)", report.links, report.link_samples.len()));
+    terminal::kv(
+        &theme,
+        "links",
+        format!("{} ({} sampled)", report.links, report.link_samples.len()),
+    );
     terminal::kv(&theme, "images", report.images);
     terminal::kv(&theme, "tables", report.tables);
-    terminal::kv(&theme, "JSON-LD types", if report.json_ld_types.is_empty() {
-        "none".to_string()
-    } else {
-        report.json_ld_types.join(", ")
-    });
+    terminal::kv(
+        &theme,
+        "JSON-LD types",
+        if report.json_ld_types.is_empty() {
+            "none".to_string()
+        } else {
+            report.json_ld_types.join(", ")
+        },
+    );
     terminal::kv(&theme, "price mentions", report.prices);
 
     if !report.headings.is_empty() {
@@ -110,6 +118,10 @@ pub async fn run(ctx: &Ctx, args: InspectArgs) -> Result<()> {
         eprintln!("  {} {}", theme.warn_mark(), theme.warn(warning));
     }
     eprintln!();
-    eprintln!("{} {}", theme.ok_mark(), theme.dim(format!("completed in {}ms", report.elapsed_ms)));
+    eprintln!(
+        "{} {}",
+        theme.ok_mark(),
+        theme.dim(format!("completed in {}ms", report.elapsed_ms))
+    );
     Ok(())
 }

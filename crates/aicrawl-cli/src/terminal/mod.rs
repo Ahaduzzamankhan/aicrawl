@@ -64,11 +64,7 @@ impl Theme {
         self.paint(text, |t| t.as_str().cyan().to_string())
     }
 
-    fn paint(
-        &self,
-        text: impl std::fmt::Display,
-        style: impl Fn(String) -> String,
-    ) -> String {
+    fn paint(&self, text: impl std::fmt::Display, style: impl Fn(String) -> String) -> String {
         let text = text.to_string();
         if self.enabled {
             style(text)

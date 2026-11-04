@@ -70,7 +70,11 @@ pub async fn start(ctx: &Ctx, args: StartArgs) -> Result<()> {
     let theme = ctx.theme;
 
     terminal::print_banner(&theme);
-    println!("{} {}", theme.ok_mark(), theme.success("Core engine initialized"));
+    println!(
+        "{} {}",
+        theme.ok_mark(),
+        theme.success("Core engine initialized")
+    );
     let database = if engine.store().ping().await.is_ok() {
         theme.success("SQLite database connected")
     } else {
@@ -85,7 +89,11 @@ pub async fn start(ctx: &Ctx, args: StartArgs) -> Result<()> {
             status => theme.warn(status.detail),
         }
     );
-    println!("{} {}", theme.ok_mark(), theme.success("MCP server initialized"));
+    println!(
+        "{} {}",
+        theme.ok_mark(),
+        theme.success("MCP server initialized")
+    );
 
     let host = engine.config().server.api_host.clone();
     let mcp_host = engine.config().server.mcp_host.clone();
@@ -121,24 +129,32 @@ pub async fn start(ctx: &Ctx, args: StartArgs) -> Result<()> {
     println!();
     println!("{} {}", theme.ok_mark(), theme.success("AICrawl is ready!"));
     println!();
-    println!("{} {}", theme.dim("Dashboard:"), theme.accent(format!("http://{host}:{api_port}")));
-    println!("{} {}", theme.dim("REST API: "), theme.accent(format!("http://{host}:{api_port}/api/v1")));
-    println!("{} {}", theme.dim("MCP:      "), theme.accent(format!("http://{mcp_host}:{mcp_port}/mcp")));
+    println!(
+        "{} {}",
+        theme.dim("Dashboard:"),
+        theme.accent(format!("http://{host}:{api_port}"))
+    );
+    println!(
+        "{} {}",
+        theme.dim("REST API: "),
+        theme.accent(format!("http://{host}:{api_port}/api/v1"))
+    );
+    println!(
+        "{} {}",
+        theme.dim("MCP:      "),
+        theme.accent(format!("http://{mcp_host}:{mcp_port}/mcp"))
+    );
     println!("{}", theme.dim("Press Ctrl+C to stop."));
 
     tokio::signal::ctrl_c().await.ok();
-    eprintln!(
-        "{} {}",
-        theme.warn_mark(),
-        theme.warn("shutting down…")
-    );
+    eprintln!("{} {}", theme.warn_mark(), theme.warn("shutting down…"));
     notify.notify_waiters();
-    let api_result = api_task.await.unwrap_or_else(|e| {
-        Err(AicrawlError::Other(format!("API task failed: {e}")))
-    });
-    let mcp_result = mcp_task.await.unwrap_or_else(|e| {
-        Err(AicrawlError::Other(format!("MCP task failed: {e}")))
-    });
+    let api_result = api_task
+        .await
+        .unwrap_or_else(|e| Err(AicrawlError::Other(format!("API task failed: {e}"))));
+    let mcp_result = mcp_task
+        .await
+        .unwrap_or_else(|e| Err(AicrawlError::Other(format!("MCP task failed: {e}"))));
     remove_pid(ctx);
 
     api_result?;
@@ -287,7 +303,10 @@ pub async fn status(ctx: &Ctx) -> Result<()> {
         &theme,
         "API",
         if api_up {
-            theme.success(format!("http://{}:{}", ctx.config.server.api_host, ctx.config.server.api_port))
+            theme.success(format!(
+                "http://{}:{}",
+                ctx.config.server.api_host, ctx.config.server.api_port
+            ))
         } else {
             theme.dim("not listening")
         },
@@ -296,7 +315,10 @@ pub async fn status(ctx: &Ctx) -> Result<()> {
         &theme,
         "MCP",
         if mcp_up {
-            theme.success(format!("http://{}:{}/mcp", ctx.config.server.mcp_host, ctx.config.server.mcp_port))
+            theme.success(format!(
+                "http://{}:{}/mcp",
+                ctx.config.server.mcp_host, ctx.config.server.mcp_port
+            ))
         } else {
             theme.dim("not listening")
         },
@@ -396,7 +418,10 @@ fn daemonize(ctx: &Ctx, api_port: u16, mcp_port: u16) -> Result<()> {
     println!(
         "  {} {}",
         theme.dim("dashboard"),
-        theme.accent(format!("http://{}:{}", ctx.config.server.api_host, api_port))
+        theme.accent(format!(
+            "http://{}:{}",
+            ctx.config.server.api_host, api_port
+        ))
     );
     println!(
         "  {} {}",
@@ -447,4 +472,3 @@ async fn probe(host: &str, port: u16) -> bool {
     .map(|result| result.is_ok())
     .unwrap_or(false)
 }
-

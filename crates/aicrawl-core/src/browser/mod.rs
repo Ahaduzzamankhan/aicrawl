@@ -153,7 +153,12 @@ impl PlaywrightRenderer {
                 ))
             })?;
 
-        let output = match tokio::time::timeout(self.timeout + Duration::from_secs(5), child.wait_with_output()).await {
+        let output = match tokio::time::timeout(
+            self.timeout + Duration::from_secs(5),
+            child.wait_with_output(),
+        )
+        .await
+        {
             Ok(Ok(output)) => output,
             Ok(Err(e)) => {
                 return Err(AicrawlError::BrowserUnavailable(format!(

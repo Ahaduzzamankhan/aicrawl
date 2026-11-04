@@ -185,12 +185,14 @@ impl UrlPolicy {
 
     /// Validates a redirect target before it is followed.
     pub async fn validate_redirect(&self, from: &Url, to: &Url) -> Result<()> {
-        self.validate_resolution(to).await.map_err(|err| match err {
-            AicrawlError::Blocked(message) => AicrawlError::Blocked(format!(
-                "redirect from {from} to {to} refused: {message}"
-            )),
-            other => other,
-        })?;
+        self.validate_resolution(to)
+            .await
+            .map_err(|err| match err {
+                AicrawlError::Blocked(message) => AicrawlError::Blocked(format!(
+                    "redirect from {from} to {to} refused: {message}"
+                )),
+                other => other,
+            })?;
         Ok(())
     }
 

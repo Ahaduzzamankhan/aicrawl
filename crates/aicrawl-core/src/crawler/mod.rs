@@ -318,8 +318,7 @@ impl Crawler {
                                 let Ok(next) = Url::parse(&link.url) else {
                                     continue;
                                 };
-                                if options.same_domain
-                                    && !same_host(&start_host, &host_key(&next))
+                                if options.same_domain && !same_host(&start_host, &host_key(&next))
                                 {
                                     continue;
                                 }
@@ -450,6 +449,9 @@ mod tests {
 
     #[test]
     fn www_is_ignored_for_same_domain() {
-        assert_eq!(host_key(&Url::parse("https://www.Example.com/").unwrap()), "example.com");
+        assert_eq!(
+            host_key(&Url::parse("https://www.Example.com/").unwrap()),
+            "example.com"
+        );
     }
 }

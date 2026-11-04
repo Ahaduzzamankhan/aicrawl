@@ -47,7 +47,10 @@ pub fn router(engine: Arc<AicrawlEngine>) -> Router {
         .route("/websites", get(list_websites))
         .route("/settings", get(get_settings).put(put_settings))
         .route("/providers", get(list_providers).post(create_provider))
-        .route("/providers/{id}", put(update_provider).delete(delete_provider))
+        .route(
+            "/providers/{id}",
+            put(update_provider).delete(delete_provider),
+        )
         .route("/providers/{id}/default", post(make_default_provider))
         .route("/providers/{id}/test", post(test_provider))
         .route("/api-keys", get(list_api_keys).post(create_api_key))
@@ -290,11 +293,7 @@ async fn start_crawl(
     Json(options): Json<CrawlOptions>,
 ) -> Response {
     match engine.start_crawl(options).await {
-        Ok(job) => (
-            StatusCode::ACCEPTED,
-            ok(json!({"job": job})),
-        )
-            .into_response(),
+        Ok(job) => (StatusCode::ACCEPTED, ok(json!({"job": job}))).into_response(),
         Err(err) => error_response(err),
     }
 }
@@ -322,10 +321,7 @@ async fn list_jobs(
     }
 }
 
-async fn get_job(
-    State(engine): State<Arc<AicrawlEngine>>,
-    Path(id): Path<String>,
-) -> Response {
+async fn get_job(State(engine): State<Arc<AicrawlEngine>>, Path(id): Path<String>) -> Response {
     match engine.store().get_job(&id).await {
         Ok(Some(job)) => {
             let pages = engine.store().list_pages(&id).await.unwrap_or_default();
@@ -344,10 +340,7 @@ async fn get_job(
     }
 }
 
-async fn cancel_job(
-    State(engine): State<Arc<AicrawlEngine>>,
-    Path(id): Path<String>,
-) -> Response {
+async fn cancel_job(State(engine): State<Arc<AicrawlEngine>>, Path(id): Path<String>) -> Response {
     match engine.store().get_job(&id).await {
         Ok(Some(_)) => match engine.cancel_job(&id).await {
             Ok(true) => ok(json!({"job_id": id, "cancelled": true})).into_response(),
@@ -381,10 +374,7 @@ async fn list_results(
     }
 }
 
-async fn get_result(
-    State(engine): State<Arc<AicrawlEngine>>,
-    Path(id): Path<String>,
-) -> Response {
+async fn get_result(State(engine): State<Arc<AicrawlEngine>>, Path(id): Path<String>) -> Response {
     match engine.store().get_result(&id).await {
         Ok(Some(result)) => ok(result_json(&result)).into_response(),
         Ok(None) => error_response(AicrawlError::NotFound(format!("result {id}"))),

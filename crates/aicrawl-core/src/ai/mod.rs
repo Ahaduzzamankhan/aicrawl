@@ -384,7 +384,10 @@ impl AiRegistry {
                     kind: Some(record.kind.clone()),
                     source: Some("database".into()),
                     detail: if usable {
-                        format!("Using default provider '{}' ({})", record.name, record.model)
+                        format!(
+                            "Using default provider '{}' ({})",
+                            record.name, record.model
+                        )
                     } else {
                         format!(
                             "Provider '{}' has no API key stored; add one to enable AI extraction",
@@ -434,11 +437,10 @@ impl AiRegistry {
 
 /// Instruction wrapper that keeps page content in the data channel.
 pub fn wrap_untrusted(content: &str) -> String {
-    let sanitized = content.replace("<untrusted_website_content>", "")
+    let sanitized = content
+        .replace("<untrusted_website_content>", "")
         .replace("</untrusted_website_content>", "");
-    format!(
-        "<untrusted_website_content>\n{sanitized}\n</untrusted_website_content>"
-    )
+    format!("<untrusted_website_content>\n{sanitized}\n</untrusted_website_content>")
 }
 
 /// System prompt shared by extraction calls.
@@ -454,13 +456,31 @@ pub fn scan_injection(content: &str) -> Vec<String> {
     static PATTERNS: OnceLock<Vec<(Regex, &'static str)>> = OnceLock::new();
     let patterns = PATTERNS.get_or_init(|| {
         [
-            (r"(?i)ignore (all )?(previous|prior|above) instructions", "tries to override prior instructions"),
-            (r"(?i)disregard (all )?(previous|prior|above) (instructions|prompts)", "asks the model to disregard its instructions"),
-            (r"(?i)(reveal|print|show|repeat) (your |the )?(system|developer) prompt", "asks for the system prompt"),
+            (
+                r"(?i)ignore (all )?(previous|prior|above) instructions",
+                "tries to override prior instructions",
+            ),
+            (
+                r"(?i)disregard (all )?(previous|prior|above) (instructions|prompts)",
+                "asks the model to disregard its instructions",
+            ),
+            (
+                r"(?i)(reveal|print|show|repeat) (your |the )?(system|developer) prompt",
+                "asks for the system prompt",
+            ),
             (r"(?i)you are now (a|an|the) ", "attempts a role change"),
-            (r"(?i)(developer|god|dan) mode", "mentions an unrestricted mode"),
-            (r"(?i)(exfiltrate|send) (the )?(api key|secret|token|credentials)", "asks for credentials"),
-            (r"(?i)tool[_ ]?call|function[_ ]?call", "mentions tool invocation"),
+            (
+                r"(?i)(developer|god|dan) mode",
+                "mentions an unrestricted mode",
+            ),
+            (
+                r"(?i)(exfiltrate|send) (the )?(api key|secret|token|credentials)",
+                "asks for credentials",
+            ),
+            (
+                r"(?i)tool[_ ]?call|function[_ ]?call",
+                "mentions tool invocation",
+            ),
         ]
         .into_iter()
         .map(|(pattern, label)| (Regex::new(pattern).expect("static regex"), label))

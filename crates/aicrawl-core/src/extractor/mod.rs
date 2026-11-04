@@ -16,9 +16,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use url::Url;
 
-use crate::ai::{
-    scan_injection, wrap_untrusted, AiRegistry, EXTRACTION_SYSTEM_PROMPT,
-};
+use crate::ai::{scan_injection, wrap_untrusted, AiRegistry, EXTRACTION_SYSTEM_PROMPT};
 use crate::error::{AicrawlError, Result};
 use crate::fetcher::{FetchOptions, Fetcher};
 use crate::parser::{parse_html, parse_plain_text, Heading, PageLink, ParsedPage};
@@ -231,7 +229,10 @@ impl ExtractionEngine {
 
         if let Some(client) = client {
             let prompt = self.build_prompt(&parsed, request);
-            match client.complete_json(EXTRACTION_SYSTEM_PROMPT, &prompt).await {
+            match client
+                .complete_json(EXTRACTION_SYSTEM_PROMPT, &prompt)
+                .await
+            {
                 Ok(value) => {
                     let mut candidate = value;
                     let mut schema_errors = request
@@ -239,7 +240,8 @@ impl ExtractionEngine {
                         .as_ref()
                         .and_then(|schema| validate_schema(schema, &candidate));
 
-                    if let (Some(schema), Some(errors)) = (&request.schema, schema_errors.as_ref()) {
+                    if let (Some(schema), Some(errors)) = (&request.schema, schema_errors.as_ref())
+                    {
                         let repair_prompt = self.build_repair_prompt(schema, &candidate, errors);
                         match client
                             .complete_json(EXTRACTION_SYSTEM_PROMPT, &repair_prompt)
@@ -339,7 +341,12 @@ impl ExtractionEngine {
         }
 
         if !parsed.headings.is_empty() {
-            let headings: Vec<&str> = parsed.headings.iter().take(25).map(|h| h.text.as_str()).collect();
+            let headings: Vec<&str> = parsed
+                .headings
+                .iter()
+                .take(25)
+                .map(|h| h.text.as_str())
+                .collect();
             prompt.push_str(&format!("\nHeadings: {}\n", headings.join(" | ")));
         }
         if !parsed.tables.is_empty() {
@@ -516,9 +523,36 @@ impl QueryIntent {
     /// Tokenises the query and detects common intents.
     pub fn parse(query: &str) -> Self {
         const STOPWORDS: &[&str] = &[
-            "the", "and", "for", "with", "from", "that", "this", "into", "all", "any", "are",
-            "extract", "find", "get", "list", "give", "show", "page", "website", "site", "please",
-            "what", "which", "where", "how", "does", "their", "there", "about", "including",
+            "the",
+            "and",
+            "for",
+            "with",
+            "from",
+            "that",
+            "this",
+            "into",
+            "all",
+            "any",
+            "are",
+            "extract",
+            "find",
+            "get",
+            "list",
+            "give",
+            "show",
+            "page",
+            "website",
+            "site",
+            "please",
+            "what",
+            "which",
+            "where",
+            "how",
+            "does",
+            "their",
+            "there",
+            "about",
+            "including",
         ];
         let lower = query.to_ascii_lowercase();
         let mut keywords: Vec<String> = Vec::new();
@@ -533,9 +567,11 @@ impl QueryIntent {
             }
         }
         Self {
-            products: ["product", "price", "cost", "shop", "buy", "offer", "item", "pricing"]
-                .iter()
-                .any(|needle| lower.contains(needle)),
+            products: [
+                "product", "price", "cost", "shop", "buy", "offer", "item", "pricing",
+            ]
+            .iter()
+            .any(|needle| lower.contains(needle)),
             tables: lower.contains("table") || lower.contains("column") || lower.contains("row"),
             links: lower.contains("link") || lower.contains("url") || lower.contains("navigation"),
             contact: lower.contains("contact")
@@ -565,11 +601,7 @@ fn matched_sections(parsed: &ParsedPage, keywords: &[String]) -> Vec<String> {
         .filter(|(score, _)| *score > 0)
         .collect();
     matches.sort_by(|a, b| b.0.cmp(&a.0));
-    matches
-        .into_iter()
-        .take(12)
-        .map(|(_, line)| line)
-        .collect()
+    matches.into_iter().take(12).map(|(_, line)| line).collect()
 }
 
 fn extract_products(parsed: &ParsedPage) -> Vec<Value> {
@@ -596,7 +628,11 @@ fn extract_products(parsed: &ParsedPage) -> Vec<Value> {
         let (Some(name_index), Some(price_index)) = (name_index, price_index) else {
             continue;
         };
-        for row in table.rows.iter().skip(usize::from(!table.headers.is_empty())) {
+        for row in table
+            .rows
+            .iter()
+            .skip(usize::from(!table.headers.is_empty()))
+        {
             let name = row.get(name_index).map(|s| s.trim()).unwrap_or("");
             let price = row.get(price_index).map(|s| s.trim()).unwrap_or("");
             if name.is_empty() || price.is_empty() {
@@ -656,7 +692,9 @@ fn extract_products(parsed: &ParsedPage) -> Vec<Value> {
 
 fn collect_json_ld_products(value: &Value, out: &mut Vec<Value>) {
     match value {
-        Value::Array(items) => items.iter().for_each(|item| collect_json_ld_products(item, out)),
+        Value::Array(items) => items
+            .iter()
+            .for_each(|item| collect_json_ld_products(item, out)),
         Value::Object(map) => {
             let types: Vec<String> = match map.get("@type") {
                 Some(Value::String(name)) => vec![name.clone()],
@@ -760,9 +798,9 @@ fn find_phones(text: &str) -> Vec<String> {
 pub fn is_crawlable(link: &PageLink) -> bool {
     const SKIP_EXTENSIONS: &[&str] = &[
         ".pdf", ".zip", ".gz", ".tar", ".rar", ".7z", ".png", ".jpg", ".jpeg", ".gif", ".webp",
-        ".svg", ".ico", ".mp3", ".mp4", ".avi", ".mov", ".wav", ".webm", ".woff", ".woff2",
-        ".ttf", ".otf", ".eot", ".css", ".js", ".json", ".xml", ".rss", ".doc", ".docx", ".xls",
-        ".xlsx", ".ppt", ".pptx", ".exe", ".dmg", ".iso",
+        ".svg", ".ico", ".mp3", ".mp4", ".avi", ".mov", ".wav", ".webm", ".woff", ".woff2", ".ttf",
+        ".otf", ".eot", ".css", ".js", ".json", ".xml", ".rss", ".doc", ".docx", ".xls", ".xlsx",
+        ".ppt", ".pptx", ".exe", ".dmg", ".iso",
     ];
     let Ok(url) = Url::parse(&link.url) else {
         return false;

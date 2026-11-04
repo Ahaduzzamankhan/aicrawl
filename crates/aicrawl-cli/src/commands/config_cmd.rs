@@ -37,7 +37,12 @@ pub async fn run(ctx: &Ctx, action: ConfigCommand) -> Result<()> {
             terminal::kv(&theme, "file", theme.dim(path.display()));
             println!();
             println!("{raw}");
-            println!("{}", theme.dim("Secrets are never stored in this file; provider keys are encrypted in SQLite."));
+            println!(
+                "{}",
+                theme.dim(
+                    "Secrets are never stored in this file; provider keys are encrypted in SQLite."
+                )
+            );
             Ok(())
         }
         ConfigCommand::Path => {
@@ -87,9 +92,7 @@ pub async fn run(ctx: &Ctx, action: ConfigCommand) -> Result<()> {
             let parsed = toml::from_str::<toml::Value>(&format!("value = {value}"))
                 .or_else(|_| toml::from_str::<toml::Value>(&format!("value = {value:?}")))
                 .map_err(|e| {
-                    AicrawlError::InvalidInput(format!(
-                        "cannot parse value '{value}' as TOML: {e}"
-                    ))
+                    AicrawlError::InvalidInput(format!("cannot parse value '{value}' as TOML: {e}"))
                 })?;
             let parsed = parsed
                 .get("value")

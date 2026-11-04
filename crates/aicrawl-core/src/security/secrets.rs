@@ -42,9 +42,9 @@ impl SecretStore {
         let key_path = data_dir.join("secret.key");
 
         if let Ok(encoded) = std::env::var("AICRAWL_SECRET_KEY") {
-            let decoded = B64
-                .decode(encoded.trim())
-                .map_err(|_| AicrawlError::Config("AICRAWL_SECRET_KEY is not valid base64".into()))?;
+            let decoded = B64.decode(encoded.trim()).map_err(|_| {
+                AicrawlError::Config("AICRAWL_SECRET_KEY is not valid base64".into())
+            })?;
             if decoded.len() != 32 {
                 return Err(AicrawlError::Config(
                     "AICRAWL_SECRET_KEY must decode to exactly 32 bytes".into(),
@@ -197,9 +197,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let store = SecretStore::open(dir.path()).unwrap();
         let encrypted = store.encrypt("value").unwrap();
-        let mut bytes = B64
-            .decode(encrypted.trim_start_matches("v1:"))
-            .unwrap();
+        let mut bytes = B64.decode(encrypted.trim_start_matches("v1:")).unwrap();
         let last = bytes.len() - 1;
         bytes[last] ^= 0xff;
         let tampered = format!("v1:{}", B64.encode(bytes));

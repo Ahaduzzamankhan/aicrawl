@@ -60,10 +60,7 @@ pub async fn run(ctx: &Ctx, args: CrawlArgs) -> Result<()> {
 
     let spinner = Spinner::start(
         &theme,
-        format!(
-            "Crawling {} (max {pages} pages, depth {depth})",
-            job.url
-        ),
+        format!("Crawling {} (max {pages} pages, depth {depth})", job.url),
     );
     let bar = spinner.bar();
     let sink: ProgressSink = std::sync::Arc::new(move |progress| {
@@ -77,10 +74,7 @@ pub async fn run(ctx: &Ctx, args: CrawlArgs) -> Result<()> {
         ));
     });
 
-    let summary = match engine
-        .run_crawl_job(&job.id, options, Some(sink))
-        .await
-    {
+    let summary = match engine.run_crawl_job(&job.id, options, Some(sink)).await {
         Ok(summary) => summary,
         Err(err) => {
             spinner.fail();
@@ -89,10 +83,7 @@ pub async fn run(ctx: &Ctx, args: CrawlArgs) -> Result<()> {
     };
     spinner.finish(
         &theme,
-        format!(
-            "Crawl finished in {}",
-            human_duration(summary.duration_ms)
-        ),
+        format!("Crawl finished in {}", human_duration(summary.duration_ms)),
     );
 
     terminal::section(&theme, "Crawl summary");
@@ -138,7 +129,10 @@ pub async fn run(ctx: &Ctx, args: CrawlArgs) -> Result<()> {
     eprintln!(
         "{} {}",
         theme.arrow(),
-        theme.dim(format!("Inspect with: aicrawl jobs --status succeeded · aicrawl results --job {}", job.id))
+        theme.dim(format!(
+            "Inspect with: aicrawl jobs --status succeeded · aicrawl results --job {}",
+            job.id
+        ))
     );
     Ok(())
 }

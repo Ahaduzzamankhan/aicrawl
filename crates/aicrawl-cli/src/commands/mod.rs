@@ -88,8 +88,9 @@ pub fn read_schema(input: Option<&str>) -> Result<Option<Value>> {
     }
     let contents = std::fs::read_to_string(trimmed)
         .map_err(|e| AicrawlError::InvalidInput(format!("cannot read schema '{trimmed}': {e}")))?;
-    let value = serde_json::from_str(&contents)
-        .map_err(|e| AicrawlError::InvalidInput(format!("schema '{trimmed}' is not valid JSON: {e}")))?;
+    let value = serde_json::from_str(&contents).map_err(|e| {
+        AicrawlError::InvalidInput(format!("schema '{trimmed}' is not valid JSON: {e}"))
+    })?;
     Ok(Some(value))
 }
 
