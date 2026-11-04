@@ -540,7 +540,10 @@ mod tests {
                 max_items: 100,
             };
             let (data, issues) = apply_rules(&root, &request.selectors, &ctx);
-            assert!(issues.is_empty(), "{issues:?}");
+            // The second card has no image, so that optional field reports a miss.
+            assert_eq!(issues.len(), 1, "{issues:?}");
+            assert_eq!(issues[0].field, "products.1.image");
+            assert!(!issues[0].required);
             let products = data["products"].as_array().unwrap();
             assert_eq!(products.len(), 2);
             assert_eq!(products[0]["name"], "Widget");
