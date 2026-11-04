@@ -84,6 +84,7 @@ jobs:
           prerelease: ${{ contains(github.event.inputs.tag || github.ref_name, '-') }}
           generate_release_notes: true
           fail_on_unmatched_files: true
+          overwrite_files: true
           files: |
             dist/aicrawl-windows-x64.exe
             dist/aicrawl-windows-x64.exe.sha256

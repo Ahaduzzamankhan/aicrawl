@@ -134,7 +134,7 @@ aicrawl api start [--port 8080]
 aicrawl jobs [--status <status>] [--limit N]
 aicrawl results [--job <id>] [--limit N] [--full]
 aicrawl config show | set <key> <value> | path
-aicrawl doctor [--online]
+aicrawl doctor [--offline]
 aicrawl version
 ```
 

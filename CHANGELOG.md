@@ -38,7 +38,7 @@ Pre-`1.0.0` experimental builds may contain breaking changes.
   calls.
 - Optional Playwright rendering bridge for JavaScript-heavy pages.
 - Windows x64 prebuilt release asset with SHA-256 checksum.
-- GitHub Actions CI, release automation, dependency review and Dependabot.
+- GitHub Actions CI, release automation and Dependabot.
 
 ### Security
 
