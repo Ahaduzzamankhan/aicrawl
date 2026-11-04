@@ -1,18 +1,18 @@
 # Security Policy
 
-AICrawl fetches untrusted web content, stores crawl data, optionally calls
-external AI providers and exposes local REST/MCP servers. Security reports are
+AICrawl fetches untrusted web content, stores crawl data and exposes local
+REST/MCP servers (plus an optional local rendering bridge). Security reports are
 taken seriously, and responsible disclosure is appreciated.
 
 ## Supported versions
 
 | Version | Supported |
 | --- | --- |
-| `0.0.1-experimental.x` | :white_check_mark: |
-| Older or unversioned builds | :x: |
+| `1.0.x` | :white_check_mark: |
+| `0.0.1-experimental.x` and older | :x: |
 
-Because this is an experimental project, only the latest published
-`0.0.1-experimental.x` build receives security fixes.
+Only the latest published `1.0.x` build receives security fixes. The 0.0.1
+experimental builds shipped an AI provider registry that no longer exists.
 
 ## Reporting a vulnerability
 
@@ -50,7 +50,7 @@ guaranteed response time, but reports are read and triaged.
 - SSRF, DNS rebinding or redirect-validation bypasses.
 - `robots.txt`, domain policy or rate-limit enforcement bypasses.
 - Authentication or authorization bypasses in the REST API or dashboard.
-- Leakage of API keys, provider credentials, encryption keys or crawl data.
+- Leakage of API keys, dashboard tokens or crawl data.
 - Stored XSS, CSRF or other injection in the embedded dashboard.
 - Prompt-injection content escaping the untrusted-content wrapper.
 - Path traversal, SQL injection, unsafe deserialization or command injection.
@@ -59,7 +59,7 @@ guaranteed response time, but reports are read and triaged.
 
 ## Out of scope
 
-- Vulnerabilities in third-party websites, services or AI providers.
+- Vulnerabilities in third-party websites, services or local rendering tools.
 - Requests to bypass CAPTCHAs, paywalls, authentication or anti-bot systems.
   AICrawl deliberately does not implement these features.
 - Missing security headers without a demonstrated impact.
@@ -89,7 +89,8 @@ Do not test against systems you do not own or lack permission to test.
 
 - Bind the API and MCP servers to `127.0.0.1` unless you have added network
   controls and API-key authentication.
-- Set `AICRAWL_SECRET_KEY` to a 32-byte base64 value managed by a secret store.
+- Set `[api].require_api_key = true` before binding beyond loopback, and store
+  the generated key in a secret manager.
 - Keep `allow_private_networks = false` and review domain allow/deny lists.
 - Run the latest release and review the changelog before upgrading.
 - Never publish `.aicrawl/`, `secret.key`, SQLite databases or logs containing

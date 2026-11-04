@@ -1,44 +1,150 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aicrawl.dev/schemas/extract-request.schema.json",
-  "title": "AICrawl extract request",
-  "description": "Body for POST /api/v1/extract and the request accepted by `aicrawl extract`.",
+  "title": "AICrawl request (schema v1)",
+  "description": "Structured, deterministic extraction request accepted by the CLI, POST /api/v1/{extract,crawl,batch,map} and the MCP extraction tools. Documented in docs/request-schema.md.",
   "type": "object",
-  "required": ["url", "query"],
   "additionalProperties": false,
+  "anyOf": [{ "required": ["url"] }, { "required": ["urls"] }],
   "properties": {
+    "version": {
+      "type": "string",
+      "enum": ["1"],
+      "default": "1",
+      "description": "Request contract version."
+    },
     "url": {
       "type": "string",
       "format": "uri",
-      "description": "Absolute http(s) URL to fetch. Subject to SSRF, domain and robots.txt policy."
+      "description": "Absolute http(s) URL. Subject to the SSRF policy, domain lists and robots.txt."
     },
-    "query": {
+    "urls": {
+      "type": "array",
+      "maxItems": 200,
+      "items": { "type": "string", "format": "uri" },
+      "description": "Targets for action=batch."
+    },
+    "action": {
       "type": "string",
-      "minLength": 1,
-      "description": "Natural-language description of the data to extract."
-    },
-    "schema": {
-      "description": "Optional JSON Schema the extracted payload must validate against.",
-      "type": "object"
-    },
-    "output_format": {
-      "type": "string",
-      "enum": ["json", "markdown", "text"],
-      "default": "json"
-    },
-    "use_ai": {
-      "type": "boolean",
-      "default": true,
-      "description": "Use the configured external AI provider when semantic extraction is needed. Deterministic extraction remains available without it."
+      "enum": ["extract", "batch", "crawl", "map"],
+      "default": "extract"
     },
     "render": {
+      "type": "string",
+      "enum": ["auto", "off", "on"],
+      "default": "auto",
+      "description": "auto renders with Playwright only when the HTML looks JavaScript-driven."
+    },
+    "use_cache": { "type": "boolean", "default": true },
+    "include_document": {
       "type": "boolean",
       "default": false,
-      "description": "Render JavaScript through the optional Playwright bridge."
+      "description": "Add the _document summary alongside rule output."
     },
-    "use_cache": {
-      "type": "boolean",
-      "default": true
+    "selectors": {
+      "type": "object",
+      "description": "Named rules. Empty means a document summary.",
+      "additionalProperties": { "$ref": "#/$defs/rule" }
+    },
+    "pagination": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "next_selector": { "type": "string" },
+        "max_pages": { "type": "integer", "minimum": 1, "maximum": 100, "default": 10 },
+        "same_origin": { "type": "boolean", "default": true }
+      }
+    },
+    "deduplicate": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "keys": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "crawl": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "max_pages": { "type": "integer", "minimum": 1, "maximum": 500, "default": 10 },
+        "max_depth": { "type": "integer", "minimum": 0, "maximum": 5, "default": 2 },
+        "same_domain": { "type": "boolean", "default": true },
+        "incremental": { "type": "boolean", "default": false },
+        "sitemap": { "type": "boolean", "default": true }
+      }
+    },
+    "schema": {
+      "type": ["object", "boolean"],
+      "description": "JSON Schema the extracted data must satisfy."
+    },
+    "output": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "format": { "type": "string", "enum": ["json", "jsonl"], "default": "json" },
+        "pretty": { "type": "boolean", "default": true }
+      }
+    }
+  },
+  "$defs": {
+    "rule": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "text",
+            "html",
+            "attribute",
+            "url",
+            "number",
+            "integer",
+            "boolean",
+            "list",
+            "object",
+            "json_ld",
+            "meta"
+          ],
+          "default": "text"
+        },
+        "selector": { "type": "string", "description": "CSS selector inside the parent scope." },
+        "xpath": { "type": "string", "description": "XPath subset expression inside the parent scope." },
+        "attribute": { "type": "string" },
+        "name": { "type": "string", "description": "Meta name/property for type=meta." },
+        "fields": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/rule" }
+        },
+        "required": { "type": "boolean", "default": false },
+        "default": {},
+        "multiple": { "type": "boolean", "default": false },
+        "max_items": { "type": "integer", "minimum": 1 },
+        "transform": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": [
+                "trim",
+                "collapse_whitespace",
+                "lowercase",
+                "uppercase",
+                "strip_html",
+                "number",
+                "integer",
+                "boolean",
+                "absolute_url"
+              ]
+            },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        },
+        "trim": { "type": "boolean" },
+        "absolute_url": { "type": "boolean" }
+      },
+      "not": { "required": ["selector", "xpath"] }
     }
   }
 }

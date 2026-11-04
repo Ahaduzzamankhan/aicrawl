@@ -1,5 +1,5 @@
 //! Security primitives shared by every interface: SSRF protection, domain
-//! policy, host rate limiting, robots.txt evaluation and secret storage.
+//! policy, host rate limiting, robots.txt evaluation and API key hashing.
 
 pub mod robots;
 pub mod secrets;
@@ -16,7 +16,7 @@ use crate::config::SecurityConfig;
 use crate::error::{AicrawlError, Result};
 
 pub use robots::{RobotsRules, RobotsSnapshot};
-pub use secrets::{hash_api_key, key_prefix, SecretStore};
+pub use secrets::{generate_api_key, hash_api_key, key_prefix};
 
 /// Validates target URLs and resolved IP addresses.
 #[derive(Debug, Clone)]

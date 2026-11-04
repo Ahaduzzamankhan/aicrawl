@@ -1,3 +1,6 @@
+> **Note:** this translation predates v1.0.0 (JSON-first requests, no AI provider).
+> See [README.md](README.md) and [docs/request-schema.md](docs/request-schema.md) for current behaviour.
+
 <div align="center">
 
 <img src="public/icon.png" alt="AICrawl logo" width="150">

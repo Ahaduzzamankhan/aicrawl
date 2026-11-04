@@ -110,7 +110,6 @@ pub struct ExtractedResult {
     pub format: String,
     pub data_json: String,
     pub warnings_json: String,
-    pub provider: Option<String>,
     pub validated: i64,
     pub duration_ms: i64,
     pub created_at: String,
@@ -170,46 +169,6 @@ impl ApiKeyRecord {
             "created_at": self.created_at,
             "last_used_at": self.last_used_at,
             "revoked_at": self.revoked_at,
-        })
-    }
-}
-
-/// AI provider configuration. `api_key_enc` holds ciphertext only.
-#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
-pub struct AiProviderRecord {
-    pub id: String,
-    pub name: String,
-    pub kind: String,
-    pub base_url: String,
-    pub model: String,
-    pub api_key_enc: Option<String>,
-    pub is_default: i64,
-    pub max_tokens: i64,
-    pub temperature: f64,
-    pub created_at: String,
-    pub updated_at: String,
-}
-
-impl AiProviderRecord {
-    /// Whether a provider key is stored.
-    pub fn has_api_key(&self) -> bool {
-        self.api_key_enc.is_some()
-    }
-
-    /// JSON representation with the ciphertext replaced by a boolean.
-    pub fn redacted(&self) -> serde_json::Value {
-        serde_json::json!({
-            "id": self.id,
-            "name": self.name,
-            "kind": self.kind,
-            "base_url": self.base_url,
-            "model": self.model,
-            "has_api_key": self.has_api_key(),
-            "is_default": self.is_default != 0,
-            "max_tokens": self.max_tokens,
-            "temperature": self.temperature,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at,
         })
     }
 }
@@ -288,24 +247,8 @@ pub struct NewResult {
     pub format: String,
     pub data_json: String,
     pub warnings_json: String,
-    pub provider: Option<String>,
     pub validated: bool,
     pub duration_ms: i64,
-}
-
-/// Input for creating or updating an AI provider.
-#[derive(Debug, Clone, Default)]
-pub struct NewProvider {
-    pub id: Option<String>,
-    pub name: String,
-    pub kind: String,
-    pub base_url: String,
-    pub model: String,
-    /// Ciphertext from [`crate::security::SecretStore::encrypt`].
-    pub api_key_enc: Option<String>,
-    pub is_default: bool,
-    pub max_tokens: i64,
-    pub temperature: f64,
 }
 
 /// Input for caching a page body.
@@ -338,8 +281,7 @@ impl std::fmt::Debug for SqliteStore {
 
 const JOB_COLUMNS: &str = "id, kind, url, query, status, output_format, schema_json, max_pages, max_depth, pages_crawled, error, meta_json, created_at, started_at, finished_at";
 const PAGE_COLUMNS: &str = "id, job_id, url, depth, status_code, title, content_type, text_length, content_hash, word_count, fetched_at, error";
-const RESULT_COLUMNS: &str = "id, job_id, url, query, mode, format, data_json, warnings_json, provider, validated, duration_ms, created_at";
-const PROVIDER_COLUMNS: &str = "id, name, kind, base_url, model, api_key_enc, is_default, max_tokens, temperature, created_at, updated_at";
+const RESULT_COLUMNS: &str = "id, job_id, url, query, mode, format, data_json, warnings_json, validated, duration_ms, created_at";
 
 impl SqliteStore {
     /// Opens (or creates) the database at `path` and runs migrations.
@@ -560,7 +502,7 @@ impl SqliteStore {
         let now = now_rfc3339();
         sqlx::query(
             "INSERT INTO crawl_pages (id, job_id, url, depth, status_code, title, content_type, text_length, content_hash, word_count, fetched_at, error)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT (job_id, url) DO UPDATE SET
                 status_code = excluded.status_code,
                 title = excluded.title,
@@ -622,8 +564,8 @@ impl SqliteStore {
         let id = new_id("res");
         let now = now_rfc3339();
         sqlx::query(
-            "INSERT INTO extracted_results (id, job_id, url, query, mode, format, data_json, warnings_json, provider, validated, duration_ms, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO extracted_results (id, job_id, url, query, mode, format, data_json, warnings_json, validated, duration_ms, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(&id)
         .bind(&new.job_id)
@@ -633,7 +575,6 @@ impl SqliteStore {
         .bind(&new.format)
         .bind(&new.data_json)
         .bind(&new.warnings_json)
-        .bind(&new.provider)
         .bind(if new.validated { 1i64 } else { 0i64 })
         .bind(new.duration_ms)
         .bind(&now)
@@ -667,8 +608,8 @@ impl SqliteStore {
 
         let id = new_id("res");
         sqlx::query(
-            "INSERT INTO extracted_results (id, job_id, url, query, mode, format, data_json, warnings_json, provider, validated, duration_ms, created_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO extracted_results (id, job_id, url, query, mode, format, data_json, warnings_json, validated, duration_ms, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )
         .bind(&id)
         .bind(&result.job_id)
@@ -678,7 +619,6 @@ impl SqliteStore {
         .bind(&result.format)
         .bind(&result.data_json)
         .bind(&result.warnings_json)
-        .bind(&result.provider)
         .bind(if result.validated { 1i64 } else { 0i64 })
         .bind(result.duration_ms)
         .bind(now_rfc3339())
@@ -898,112 +838,15 @@ impl SqliteStore {
         Ok(result.rows_affected() > 0)
     }
 
-    // ------------------------------------------------------------ providers
-
-    /// Inserts or updates an AI provider.
-    pub async fn upsert_provider(&self, new: NewProvider) -> Result<AiProviderRecord> {
-        let id = new.id.clone().unwrap_or_else(|| new_id("prov"));
-        let now = now_rfc3339();
-        let mut tx = self.pool.begin().await?;
-        if new.is_default {
-            sqlx::query("UPDATE ai_providers SET is_default = 0")
-                .execute(&mut *tx)
-                .await?;
-        }
-        sqlx::query(
-            "INSERT INTO ai_providers (id, name, kind, base_url, model, api_key_enc, is_default, max_tokens, temperature, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-             ON CONFLICT (id) DO UPDATE SET
-                name = excluded.name,
-                kind = excluded.kind,
-                base_url = excluded.base_url,
-                model = excluded.model,
-                api_key_enc = COALESCE(excluded.api_key_enc, ai_providers.api_key_enc),
-                is_default = excluded.is_default,
-                max_tokens = excluded.max_tokens,
-                temperature = excluded.temperature,
-                updated_at = excluded.updated_at",
+    /// Latest stored content hash for a URL (incremental crawling).
+    pub async fn previous_content_hash(&self, url: &str) -> Result<Option<String>> {
+        let row: Option<(String,)> = sqlx::query_as(
+            "SELECT content_hash FROM crawl_pages WHERE url = ? AND content_hash IS NOT NULL ORDER BY fetched_at DESC LIMIT 1",
         )
-        .bind(&id)
-        .bind(&new.name)
-        .bind(&new.kind)
-        .bind(&new.base_url)
-        .bind(&new.model)
-        .bind(&new.api_key_enc)
-        .bind(if new.is_default { 1i64 } else { 0i64 })
-        .bind(new.max_tokens)
-        .bind(new.temperature)
-        .bind(&now)
-        .bind(&now)
-        .execute(&mut *tx)
+        .bind(url)
+        .fetch_optional(&self.pool)
         .await?;
-        tx.commit().await?;
-        self.get_provider(&id)
-            .await?
-            .ok_or_else(|| AicrawlError::Database(sqlx::Error::RowNotFound))
-    }
-
-    /// Fetches a provider by id.
-    pub async fn get_provider(&self, id: &str) -> Result<Option<AiProviderRecord>> {
-        let sql = format!("SELECT {PROVIDER_COLUMNS} FROM ai_providers WHERE id = ?");
-        let row = sqlx::query_as::<_, AiProviderRecord>(sqlx::AssertSqlSafe(sql))
-            .bind(id)
-            .fetch_optional(&self.pool)
-            .await?;
-        Ok(row)
-    }
-
-    /// Lists configured providers.
-    pub async fn list_providers(&self) -> Result<Vec<AiProviderRecord>> {
-        let sql = format!(
-            "SELECT {PROVIDER_COLUMNS} FROM ai_providers ORDER BY is_default DESC, created_at"
-        );
-        let rows = sqlx::query_as::<_, AiProviderRecord>(sqlx::AssertSqlSafe(sql))
-            .fetch_all(&self.pool)
-            .await?;
-        Ok(rows)
-    }
-
-    /// Returns the default provider, if one is configured.
-    pub async fn default_provider(&self) -> Result<Option<AiProviderRecord>> {
-        let sql =
-            format!("SELECT {PROVIDER_COLUMNS} FROM ai_providers WHERE is_default = 1 LIMIT 1");
-        let row = sqlx::query_as::<_, AiProviderRecord>(sqlx::AssertSqlSafe(sql))
-            .fetch_optional(&self.pool)
-            .await?;
-        Ok(row)
-    }
-
-    /// Marks a provider as the default inside a transaction.
-    pub async fn set_default_provider(&self, id: &str) -> Result<bool> {
-        let mut tx = self.pool.begin().await?;
-        let exists: Option<(String,)> = sqlx::query_as("SELECT id FROM ai_providers WHERE id = ?")
-            .bind(id)
-            .fetch_optional(&mut *tx)
-            .await?;
-        if exists.is_none() {
-            return Ok(false);
-        }
-        sqlx::query("UPDATE ai_providers SET is_default = 0, updated_at = ?")
-            .bind(now_rfc3339())
-            .execute(&mut *tx)
-            .await?;
-        sqlx::query("UPDATE ai_providers SET is_default = 1, updated_at = ? WHERE id = ?")
-            .bind(now_rfc3339())
-            .bind(id)
-            .execute(&mut *tx)
-            .await?;
-        tx.commit().await?;
-        Ok(true)
-    }
-
-    /// Deletes a provider. Returns false when it did not exist.
-    pub async fn delete_provider(&self, id: &str) -> Result<bool> {
-        let result = sqlx::query("DELETE FROM ai_providers WHERE id = ?")
-            .bind(id)
-            .execute(&self.pool)
-            .await?;
-        Ok(result.rows_affected() > 0)
+        Ok(row.map(|row| row.0))
     }
 
     // ---------------------------------------------------------------- cache
@@ -1189,7 +1032,6 @@ mod tests {
             format: "json".into(),
             data_json: r#"{"items":[]}"#.into(),
             warnings_json: "[]".into(),
-            provider: None,
             validated: true,
             duration_ms: 12,
         };
@@ -1267,78 +1109,6 @@ mod tests {
         assert!(store.revoke_api_key(&key.id).await.unwrap());
         assert!(store.find_active_api_key(&hash).await.unwrap().is_none());
         assert!(!store.revoke_api_key(&key.id).await.unwrap());
-    }
-
-    #[tokio::test]
-    async fn default_provider_is_exclusive() {
-        let store = SqliteStore::connect_memory().await.unwrap();
-        let first = store
-            .upsert_provider(NewProvider {
-                name: "first".into(),
-                kind: "openai_compatible".into(),
-                base_url: "https://api.example.com/v1".into(),
-                model: "m1".into(),
-                is_default: true,
-                max_tokens: 100,
-                ..Default::default()
-            })
-            .await
-            .unwrap();
-        let second = store
-            .upsert_provider(NewProvider {
-                name: "second".into(),
-                kind: "openai_compatible".into(),
-                base_url: "https://api.example.com/v1".into(),
-                model: "m2".into(),
-                is_default: true,
-                max_tokens: 100,
-                ..Default::default()
-            })
-            .await
-            .unwrap();
-        let default = store.default_provider().await.unwrap().unwrap();
-        assert_eq!(default.id, second.id);
-        assert!(!store
-            .get_provider(&first.id)
-            .await
-            .unwrap()
-            .unwrap()
-            .is_default
-            .eq(&1));
-
-        // Updating without a new key preserves the stored ciphertext.
-        let with_key = store
-            .upsert_provider(NewProvider {
-                id: Some(second.id.clone()),
-                name: "second".into(),
-                kind: "openai_compatible".into(),
-                base_url: "https://api.example.com/v1".into(),
-                model: "m3".into(),
-                api_key_enc: Some("v1:abc".into()),
-                is_default: true,
-                max_tokens: 100,
-                ..Default::default()
-            })
-            .await
-            .unwrap();
-        assert!(with_key.has_api_key());
-        let updated = store
-            .upsert_provider(NewProvider {
-                id: Some(second.id.clone()),
-                name: "second".into(),
-                kind: "openai_compatible".into(),
-                base_url: "https://api.example.com/v1".into(),
-                model: "m4".into(),
-                api_key_enc: None,
-                is_default: true,
-                max_tokens: 200,
-                ..Default::default()
-            })
-            .await
-            .unwrap();
-        assert!(updated.has_api_key());
-        assert_eq!(updated.model, "m4");
-        assert_eq!(updated.max_tokens, 200);
     }
 
     #[tokio::test]

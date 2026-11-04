@@ -75,7 +75,7 @@ Do not commit a machine-specific toolchain path or a vendored compiler.
    routing.
 5. No secrets, database files, `frontend/dist`, `.tools/` or build logs are
    committed.
-6. The dashboard still works with the embedded assets (`aicrawl start`).
+6. The dashboard still works with the embedded assets (`aicrawl api`).
 
 Keep changes focused. Explain the “why” in the PR description, not just the
 “what”. Screenshots help for dashboard changes.

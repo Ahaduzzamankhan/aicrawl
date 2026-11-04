@@ -1,0 +1,18 @@
+{
+  "version": "1",
+  "action": "batch",
+  "urls": [
+    "https://example.com/",
+    "https://example.com/about"
+  ],
+  "render": "off",
+  "selectors": {
+    "title": { "selector": "h1", "required": true },
+    "headings": {
+      "type": "list",
+      "selector": "h2",
+      "fields": { "text": { "selector": ":scope" } }
+    }
+  },
+  "deduplicate": { "enabled": true, "keys": ["text"] }
+}

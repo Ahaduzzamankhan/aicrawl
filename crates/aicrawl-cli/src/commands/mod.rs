@@ -1,24 +1,25 @@
 //! CLI command implementations.
 
 pub mod config_cmd;
-pub mod crawl;
 pub mod doctor;
-pub mod extract;
 pub mod inspect;
 pub mod query;
 pub mod server;
+pub mod structured;
 
-use std::path::PathBuf;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 
 use aicrawl_core::config::{self, AppConfig};
 use aicrawl_core::engine::AicrawlEngine;
 use aicrawl_core::error::{AicrawlError, Result};
+use aicrawl_core::output::Response;
 use serde_json::Value;
 
 use crate::terminal::Theme;
 use crate::{Cli, Command};
 
-/// Shared CLI context: resolved config, data directory and theme.
+/// Shared CLI context: resolved configuration, paths and colour theme.
 pub struct Ctx {
     pub config: AppConfig,
     pub data_dir: PathBuf,
@@ -27,7 +28,7 @@ pub struct Ctx {
 }
 
 impl Ctx {
-    /// Resolves the config file and data directory for this invocation.
+    /// Resolves the configuration for this invocation.
     pub fn from_cli(cli: &Cli, theme: Theme) -> Result<Self> {
         let data_dir = cli
             .data_dir
@@ -54,44 +55,87 @@ impl Ctx {
     pub async fn engine(&self) -> Result<AicrawlEngine> {
         AicrawlEngine::open(self.config.clone()).await
     }
-
-    /// Path of the JSON schema argument, either inline or a filename.
-    pub fn schema(&self, input: Option<&str>) -> Result<Option<Value>> {
-        read_schema(input)
-    }
-
-    /// PID file used by `start`/`stop`/`status`.
-    pub fn pid_path(&self) -> PathBuf {
-        self.data_dir.join("aicrawl.pid")
-    }
-
-    /// Log file used when daemonizing.
-    pub fn log_path(&self) -> PathBuf {
-        self.data_dir.join("aicrawl.log")
-    }
 }
 
-/// Reads a schema passed inline (`{...}`) or from a file.
-pub fn read_schema(input: Option<&str>) -> Result<Option<Value>> {
-    let Some(raw) = input else {
-        return Ok(None);
+/// Reads JSON from `--input <path>` or stdin.
+pub fn read_json(path: Option<&Path>, stdin: bool) -> Result<Value> {
+    let raw = match (path, stdin) {
+        (Some(path), _) => std::fs::read_to_string(path).map_err(|e| {
+            AicrawlError::InvalidInput(format!("cannot read {}: {e}", path.display()))
+        })?,
+        (None, true) => {
+            let mut buffer = String::new();
+            std::io::stdin()
+                .read_to_string(&mut buffer)
+                .map_err(|e| AicrawlError::InvalidInput(format!("cannot read stdin: {e}")))?;
+            buffer
+        }
+        (None, false) => return Ok(Value::Null),
     };
     let trimmed = raw.trim();
     if trimmed.is_empty() {
-        return Ok(None);
+        return Err(AicrawlError::InvalidInput(
+            "input is empty; send a JSON request object".into(),
+        ));
     }
-    if trimmed.starts_with('{') || trimmed.starts_with('[') {
-        let value = serde_json::from_str(trimmed).map_err(|e| {
-            AicrawlError::InvalidInput(format!("inline schema is not valid JSON: {e}"))
-        })?;
-        return Ok(Some(value));
+    serde_json::from_str(trimmed)
+        .map_err(|e| AicrawlError::InvalidInput(format!("input is not valid JSON: {e}")))
+}
+
+/// Writes JSON to stdout or to `--output`.
+pub fn write_json(value: &Value, output: Option<&Path>, pretty: bool) -> Result<()> {
+    let text = if pretty {
+        serde_json::to_string_pretty(value)?
+    } else {
+        serde_json::to_string(value)?
+    };
+    match output {
+        Some(path) => {
+            std::fs::write(path, format!("{text}\n")).map_err(|e| {
+                AicrawlError::Io(std::io::Error::new(
+                    e.kind(),
+                    format!("cannot write {}: {e}", path.display()),
+                ))
+            })?;
+        }
+        None => println!("{text}"),
     }
-    let contents = std::fs::read_to_string(trimmed)
-        .map_err(|e| AicrawlError::InvalidInput(format!("cannot read schema '{trimmed}': {e}")))?;
-    let value = serde_json::from_str(&contents).map_err(|e| {
-        AicrawlError::InvalidInput(format!("schema '{trimmed}' is not valid JSON: {e}"))
-    })?;
-    Ok(Some(value))
+    Ok(())
+}
+
+/// Process exit code for a response: 0 success, 2 invalid request, 1 failure.
+pub fn exit_code(response: &Response) -> i32 {
+    if response.success {
+        return 0;
+    }
+    match response
+        .error
+        .as_ref()
+        .map(|error| error.code.as_str())
+        .unwrap_or("INTERNAL_ERROR")
+    {
+        "INVALID_REQUEST" | "FIELD_REQUIRED" | "SCHEMA_VALIDATION_FAILED" => 2,
+        _ => 1,
+    }
+}
+
+/// Prints a response as JSON and reports field issues on stderr.
+pub fn emit(response: &Response, output: Option<&Path>, pretty: bool) -> Result<i32> {
+    if !response.success {
+        if let Some(error) = &response.error {
+            eprintln!("error [{}]: {}", error.code, error.message);
+        }
+        for issue in &response.errors {
+            eprintln!("  - {}: {}", issue.field, issue.message);
+        }
+    } else if !response.errors.is_empty() {
+        for issue in &response.errors {
+            eprintln!("  warning: {}: {}", issue.field, issue.message);
+        }
+    }
+    let value = serde_json::to_value(response)?;
+    write_json(&value, output, pretty)?;
+    Ok(exit_code(response))
 }
 
 /// Formats milliseconds for humans.
@@ -103,35 +147,30 @@ pub fn human_duration(ms: u64) -> String {
     }
 }
 
-/// Dispatches the parsed command.
-pub async fn run(cli: Cli, theme: Theme) -> Result<()> {
+/// Dispatches the parsed command and returns its exit code.
+pub async fn run(cli: Cli, theme: Theme) -> Result<i32> {
     let ctx = Ctx::from_cli(&cli, theme)?;
     match cli.command {
-        Command::Start(args) => server::start(&ctx, args).await,
-        Command::Stop => server::stop(&ctx).await,
-        Command::Status => server::status(&ctx).await,
-        Command::Extract(args) => extract::run(&ctx, args).await,
-        Command::Crawl(args) => crawl::run(&ctx, args).await,
+        Command::Extract(args) => structured::extract(&ctx, args).await,
+        Command::Crawl(args) => structured::crawl(&ctx, args).await,
+        Command::Batch(args) => structured::batch(&ctx, args).await,
+        Command::Map(args) => structured::map(&ctx, args).await,
+        Command::Validate(args) => structured::validate(&ctx, args).await,
         Command::Inspect(args) => inspect::run(&ctx, args).await,
-        Command::Mcp { action } => server::mcp(&ctx, action).await,
-        Command::Api { action } => server::api(&ctx, action).await,
+        Command::Api(args) => server::api(&ctx, args).await,
+        Command::Mcp(args) => server::mcp(&ctx, args).await,
         Command::Jobs(args) => query::jobs(&ctx, args).await,
         Command::Results(args) => query::results(&ctx, args).await,
         Command::Config { action } => config_cmd::run(&ctx, action).await,
         Command::Doctor(args) => doctor::run(&ctx, args).await,
         Command::Version => {
-            crate::terminal::print_banner(&theme);
-            println!("{}", theme.bold("Version"));
-            crate::terminal::kv(&theme, "aicrawl", aicrawl_core::VERSION);
-            crate::terminal::kv(&theme, "rust", rustc_version());
-            crate::terminal::kv(&theme, "database", "SQLite (sqlx)");
-            crate::terminal::kv(&theme, "data dir", ctx.data_dir.display());
-            crate::terminal::kv(&theme, "config", ctx.config_path.display());
-            Ok(())
+            println!("aicrawl {}", aicrawl_core::VERSION);
+            println!("request schema v{}", aicrawl_core::SCHEMA_VERSION);
+            println!("database  SQLite (sqlx)");
+            println!("data dir  {}", ctx.data_dir.display());
+            println!("config    {}", ctx.config_path.display());
+            println!("ai        not required (deterministic extraction)");
+            Ok(0)
         }
     }
-}
-
-fn rustc_version() -> &'static str {
-    option_env!("AICRAWL_RUSTC_VERSION").unwrap_or("unknown")
 }

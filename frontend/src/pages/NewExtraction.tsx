@@ -1,19 +1,25 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
-  Clock,
-  FileJson,
+  Copy,
+  Download,
+  History,
   Loader2,
   Play,
-  Sparkles,
-  Wand2,
+  Save,
+  ShieldCheck,
+  Trash2,
 } from "lucide-react";
-import { ApiError, api, type ExtractResponse } from "@/lib/api";
-import { useToast } from "@/components/ui/toast";
+import {
+  ApiError,
+  api,
+  type ExtractionResponse,
+  type Issue,
+} from "@/lib/api";
 import { PageHeader } from "@/components/PageHeader";
 import { JsonViewer } from "@/components/JsonViewer";
-import { StatusBadge, ModeBadge } from "@/components/StatusBadge";
+import { useToast } from "@/components/ui/toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,517 +30,531 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn, formatDuration } from "@/lib/utils";
+import { copyText, formatDuration } from "@/lib/utils";
 
-const EXAMPLES = [
-  {
-    label: "Products",
-    url: "https://example.com/products",
-    query: "Extract product names, prices and descriptions",
-    schema: `{
-  "type": "object",
-  "properties": {
+const TEMPLATE = `{
+  "version": "1",
+  "url": "https://example.com/products",
+  "action": "extract",
+  "render": "auto",
+  "selectors": {
     "products": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "name": { "type": "string" },
-          "price": { "type": "string" },
-          "description": { "type": "string" }
-        },
-        "required": ["name"]
+      "type": "list",
+      "selector": ".product-card",
+      "fields": {
+        "name": { "selector": ".product-title", "required": true },
+        "price": { "selector": ".price", "type": "number" },
+        "link": { "selector": "a", "type": "url" }
       }
     }
   },
-  "required": ["products"]
+  "pagination": { "enabled": false, "next_selector": "a.next", "max_pages": 5 },
+  "deduplicate": { "enabled": true, "keys": ["name"] },
+  "output": { "format": "json", "pretty": true }
+}`;
+
+const PRESETS: { label: string; value: string }[] = [
+  {
+    label: "Document summary",
+    value: `{
+  "version": "1",
+  "url": "https://example.com",
+  "action": "extract"
 }`,
   },
   {
-    label: "Article",
-    url: "https://example.com/blog/post",
-    query: "Extract the article title, author, publish date and a summary",
-    schema: "",
+    label: "Crawl a site",
+    value: `{
+  "version": "1",
+  "url": "https://example.com",
+  "action": "crawl",
+  "crawl": { "max_pages": 10, "max_depth": 2, "same_domain": true, "sitemap": true },
+  "selectors": {
+    "title": { "selector": "h1" },
+    "description": { "type": "meta", "name": "description" }
+  }
+}`,
   },
   {
-    label: "Pricing",
-    url: "https://example.com/pricing",
-    query: "Extract plan names, monthly prices and included features",
-    schema: "",
+    label: "Batch URLs",
+    value: `{
+  "version": "1",
+  "action": "batch",
+  "urls": ["https://example.com", "https://example.com/about"],
+  "selectors": { "title": { "selector": "h1", "required": true } }
+}`,
+  },
+  {
+    label: "Map a domain",
+    value: `{
+  "version": "1",
+  "url": "https://example.com",
+  "action": "map",
+  "crawl": { "max_pages": 50, "max_depth": 2, "sitemap": true }
+}`,
+  },
+  {
+    label: "JSON-LD + Open Graph",
+    value: `{
+  "version": "1",
+  "url": "https://example.com",
+  "selectors": {
+    "ld": { "type": "json_ld" },
+    "og_title": { "type": "meta", "name": "og:title" },
+    "headings": { "type": "list", "selector": "h2", "fields": { "text": { "selector": ":scope" } } }
+  }
+}`,
   },
 ];
 
-type Phase = "idle" | "running" | "done" | "failed";
+interface HistoryEntry {
+  at: string;
+  request: string;
+  success: boolean;
+  jobId?: string | null;
+  items?: number;
+}
+
+const HISTORY_KEY = "aicrawl.history";
+const TEMPLATES_KEY = "aicrawl.templates";
 
 export function NewExtraction() {
   const toast = useToast();
-  const [url, setUrl] = useState("https://example.com");
-  const [query, setQuery] = useState(
-    "Extract product names, prices and descriptions",
-  );
-  const [schemaText, setSchemaText] = useState("");
-  const [format, setFormat] = useState("json");
-  const [useAi, setUseAi] = useState(true);
-  const [render, setRender] = useState(false);
-  const [useCache, setUseCache] = useState(true);
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [elapsed, setElapsed] = useState(0);
-  const [result, setResult] = useState<ExtractResponse | null>(null);
-  const [failure, setFailure] = useState<string | null>(null);
-  const startedAt = useRef<number | null>(null);
+  const [text, setText] = useState(TEMPLATE);
+  const [url, setUrl] = useState("https://example.com/products");
+  const [action, setAction] = useState("extract");
+  const [response, setResponse] = useState<ExtractionResponse | null>(null);
+  const [busy, setBusy] = useState<"validate" | "run" | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [templates, setTemplates] = useState<Record<string, string>>({});
+  const [templateName, setTemplateName] = useState("");
 
   useEffect(() => {
-    if (phase !== "running") return;
-    const timer = window.setInterval(() => {
-      if (startedAt.current) {
-        setElapsed(Date.now() - startedAt.current);
-      }
-    }, 100);
-    return () => window.clearInterval(timer);
-  }, [phase]);
-
-  const schemaError = useMemo(() => {
-    if (!schemaText.trim()) return null;
     try {
-      const parsed = JSON.parse(schemaText);
-      if (typeof parsed !== "object" || Array.isArray(parsed)) {
-        return "Schema must be a JSON object";
-      }
+      setHistory(JSON.parse(localStorage.getItem(HISTORY_KEY) ?? "[]"));
+      setTemplates(JSON.parse(localStorage.getItem(TEMPLATES_KEY) ?? "{}"));
+    } catch {
+      /* ignore malformed local storage */
+    }
+  }, []);
+
+  const parsed = useMemo(() => {
+    try {
+      const value = JSON.parse(text) as Record<string, unknown>;
+      setParseError(null);
+      return value;
+    } catch (error) {
+      setParseError(error instanceof Error ? error.message : String(error));
       return null;
-    } catch (error) {
-      return error instanceof Error ? error.message : "Invalid JSON";
     }
-  }, [schemaText]);
+  }, [text]);
 
-  const run = async () => {
-    if (!url.trim()) {
-      toast.error("URL required", "Enter the page you want to extract from.");
+  /** Keeps the URL/action inputs in sync with the editor without clobbering JSON. */
+  const applyControls = () => {
+    if (!parsed) return null;
+    const next = { ...parsed };
+    if (url.trim()) next.url = url.trim();
+    if (action) next.action = action;
+    return next;
+  };
+
+  const run = async (mode: "validate" | "run") => {
+    const payload = applyControls();
+    if (!payload) {
+      toast.error("Request is not valid JSON", parseError ?? undefined);
       return;
     }
-    if (schemaError) {
-      toast.error("Schema is not valid JSON", schemaError);
-      return;
-    }
-    setPhase("running");
-    setFailure(null);
-    setResult(null);
-    setElapsed(0);
-    startedAt.current = Date.now();
-
+    setBusy(mode);
     try {
-      const response = await api.extract({
-        url: url.trim(),
-        query: query.trim() || "Extract the main content of this page",
-        schema: schemaText.trim() ? JSON.parse(schemaText) : undefined,
-        output_format: format,
-        use_ai: useAi,
-        render,
-        use_cache: useCache,
-      });
-      setResult(response);
-      setPhase("done");
-      toast.success(
-        "Extraction complete",
-        `${response.outcome.mode} · ${formatDuration(response.outcome.duration_ms)}`,
-      );
+      const result =
+        mode === "validate"
+          ? await api.validate(payload)
+          : payload.action === "crawl"
+            ? await api.crawl(payload)
+            : payload.action === "batch"
+              ? await api.batch(payload)
+              : payload.action === "map"
+                ? await api.map(payload)
+                : await api.run(payload);
+      setResponse(result);
+      if (mode === "run") {
+        const entry: HistoryEntry = {
+          at: new Date().toISOString(),
+          request: JSON.stringify(payload, null, 2),
+          success: result.success,
+          jobId: result.meta?.job_id,
+          items: result.meta?.items_extracted,
+        };
+        const next = [entry, ...history].slice(0, 12);
+        setHistory(next);
+        localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+      }
+      if (result.success) {
+        toast.success(
+          mode === "validate" ? "Request is valid" : "Extraction complete",
+          result.meta?.job_id ?? undefined,
+        );
+      } else {
+        toast.error(result.error?.code ?? "Request failed", result.error?.message);
+      }
     } catch (error) {
-      const message =
-        error instanceof ApiError ? error.message : String(error);
-      setFailure(message);
-      setPhase("failed");
-      toast.error("Extraction failed", message);
+      const cause = error instanceof ApiError ? error : new ApiError(String(error));
+      toast.error(cause.code, cause.message);
+    } finally {
+      setBusy(null);
     }
+  };
+
+  const download = () => {
+    if (!response) return;
+    const blob = new Blob([JSON.stringify(response, null, 2)], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `aicrawl-${response.meta?.job_id ?? "result"}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  };
+
+  const saveTemplate = () => {
+    const name = templateName.trim();
+    if (!name) {
+      toast.error("Name the template first");
+      return;
+    }
+    const next = { ...templates, [name]: text };
+    setTemplates(next);
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(next));
+    setTemplateName("");
+    toast.success("Template saved", name);
+  };
+
+  const removeTemplate = (name: string) => {
+    const next = { ...templates };
+    delete next[name];
+    setTemplates(next);
+    localStorage.setItem(TEMPLATES_KEY, JSON.stringify(next));
   };
 
   return (
     <div className="space-y-6">
       <PageHeader
-        title="New extraction"
-        description="Describe what you need in natural language. The Rust engine fetches, parses and validates; an external AI provider is used only when configured."
-        actions={
-          <Badge variant="outline" className="font-mono">
-            POST /api/v1/extract
-          </Badge>
-        }
+        title="Request workbench"
+        description="AICrawl is JSON-first. Describe the page and the fields you want with CSS or XPath rules; the same request works in the CLI, REST API and MCP tools."
+        actions={<Badge variant="outline">schema v1 · no AI required</Badge>}
       />
 
-      <div className="grid gap-4 xl:grid-cols-5">
-        <div className="space-y-4 xl:col-span-3">
-          <Card>
-            <CardHeader className="flex-row items-center justify-between">
+      <div className="grid gap-4 xl:grid-cols-2">
+        <Card className="flex flex-col">
+          <CardHeader className="gap-3">
+            <div className="flex items-center justify-between gap-2">
               <div>
-                <CardTitle>Request</CardTitle>
-                <CardDescription>
-                  Website URL and the query to answer.
-                </CardDescription>
+                <CardTitle>Request JSON</CardTitle>
+                <CardDescription>Validate locally, then run against the engine.</CardDescription>
               </div>
-              <Wand2 className="size-4 text-primary" />
-            </CardHeader>
-            <CardContent className="space-y-4">
+              <Select
+                value=""
+                onChange={(event) => {
+                  const preset = PRESETS.find((item) => item.label === event.target.value);
+                  if (preset) setText(preset.value);
+                }}
+                aria-label="Load a preset"
+                className="w-44"
+              >
+                <option value="">Load preset…</option>
+                {PRESETS.map((preset) => (
+                  <option key={preset.label} value={preset.label}>
+                    {preset.label}
+                  </option>
+                ))}
+                {Object.keys(templates).map((name) => (
+                  <option key={`saved-${name}`} value={`saved:${name}`}>
+                    {`saved: ${name}`}
+                  </option>
+                ))}
+              </Select>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-[1fr_11rem]">
               <div className="space-y-1.5">
-                <Label htmlFor="url">Website URL</Label>
+                <Label htmlFor="request-url">Target URL</Label>
                 <Input
-                  id="url"
-                  placeholder="https://example.com/products"
+                  id="request-url"
                   value={url}
                   onChange={(event) => setUrl(event.target.value)}
                   spellCheck={false}
-                  inputMode="url"
+                  className="font-mono text-xs"
                 />
               </div>
-
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="query">Extraction query</Label>
-                  <span className="text-[10px] text-muted-foreground">
-                    natural language
-                  </span>
-                </div>
-                <Textarea
-                  id="query"
-                  rows={3}
-                  placeholder="Extract product names, prices and descriptions"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                />
-                <div className="flex flex-wrap gap-1.5 pt-1">
-                  <span className="text-[10px] text-muted-foreground">
-                    Examples:
-                  </span>
-                  {EXAMPLES.map((example) => (
-                    <button
-                      key={example.label}
-                      onClick={() => {
-                        setUrl(example.url);
-                        setQuery(example.query);
-                        setSchemaText(example.schema);
-                      }}
-                      className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
-                    >
-                      {example.label}
-                    </button>
-                  ))}
-                </div>
+                <Label htmlFor="request-action">Action</Label>
+                <Select
+                  id="request-action"
+                  value={action}
+                  onChange={(event) => setAction(event.target.value)}
+                >
+                  <option value="extract">extract</option>
+                  <option value="crawl">crawl</option>
+                  <option value="batch">batch</option>
+                  <option value="map">map</option>
+                </Select>
               </div>
+            </div>
+          </CardHeader>
 
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="format">Output format</Label>
-                  <Select
-                    id="format"
-                    value={format}
-                    onChange={(event) => setFormat(event.target.value)}
+          <CardContent className="flex flex-1 flex-col gap-3">
+            <textarea
+              value={text}
+              onChange={(event) => setText(event.target.value)}
+              spellCheck={false}
+              aria-label="Request JSON"
+              className="scrollbar-thin min-h-[22rem] flex-1 resize-y rounded-lg border border-border bg-code p-3 font-mono text-[12px] leading-relaxed text-foreground outline-none focus:ring-1 focus:ring-ring"
+            />
+
+            {parseError ? (
+              <p className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-[11px] text-destructive">
+                <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+                {parseError}
+              </p>
+            ) : null}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button size="sm" onClick={() => run("run")} disabled={busy !== null || !parsed}>
+                {busy === "run" ? <Loader2 className="animate-spin" /> : <Play />}
+                Run request
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => run("validate")}
+                disabled={busy !== null || !parsed}
+              >
+                {busy === "validate" ? <Loader2 className="animate-spin" /> : <ShieldCheck />}
+                Validate
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={async () => {
+                  if (await copyText(text)) toast.success("Request copied");
+                }}
+              >
+                <Copy /> Copy
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setText(TEMPLATE);
+                  setResponse(null);
+                }}
+              >
+                <Trash2 /> Reset
+              </Button>
+            </div>
+
+            <div className="flex flex-wrap items-end gap-2 border-t border-border/60 pt-3">
+              <div className="flex-1 space-y-1.5">
+                <Label htmlFor="template-name">Save as template</Label>
+                <Input
+                  id="template-name"
+                  placeholder="e.g. product cards"
+                  value={templateName}
+                  onChange={(event) => setTemplateName(event.target.value)}
+                />
+              </div>
+              <Button size="sm" variant="outline" onClick={saveTemplate}>
+                <Save /> Save
+              </Button>
+            </div>
+
+            {Object.keys(templates).length ? (
+              <div className="flex flex-wrap gap-1.5">
+                {Object.keys(templates).map((name) => (
+                  <span
+                    key={name}
+                    className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px]"
                   >
-                    <option value="json">JSON</option>
-                    <option value="markdown">Markdown</option>
-                    <option value="text">Text</option>
-                  </Select>
-                </div>
-                <Toggle
-                  label="Use external AI"
-                  hint="Semantic extraction"
-                  checked={useAi}
-                  onChange={setUseAi}
-                />
-                <Toggle
-                  label="Render JavaScript"
-                  hint="Playwright (optional)"
-                  checked={render}
-                  onChange={setRender}
-                />
+                    <button
+                      className="hover:text-primary"
+                      onClick={() => setText(templates[name])}
+                    >
+                      {name}
+                    </button>
+                    <button
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => removeTemplate(name)}
+                      aria-label={`Delete template ${name}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
               </div>
+            ) : null}
+          </CardContent>
+        </Card>
 
-              <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-                <div>
-                  <p className="text-xs font-medium">Cache</p>
-                  <p className="text-[10px] text-muted-foreground">
-                    Reuse recent responses from SQLite (TTL configured server-side)
+        <div className="space-y-4">
+          <Card>
+            <CardHeader className="flex-row items-start justify-between gap-2">
+              <div>
+                <CardTitle>Response</CardTitle>
+                <CardDescription>The shared envelope returned by CLI, API and MCP.</CardDescription>
+              </div>
+              {response ? (
+                <Badge variant={response.success ? "success" : "destructive"}>
+                  {response.success ? "success" : response.error?.code ?? "error"}
+                </Badge>
+              ) : null}
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {response ? (
+                <>
+                  <MetaSummary response={response} />
+                  {response.error ? (
+                    <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
+                      <p className="font-medium">{response.error.code}</p>
+                      <p className="mt-1">{response.error.message}</p>
+                      {response.error.retryable ? (
+                        <p className="mt-1 text-[11px]">Retryable: yes</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <Issues issues={response.errors ?? []} />
+                  {response.meta?.warnings?.length ? (
+                    <div className="space-y-1 rounded-md border border-warning/30 bg-warning/10 p-3 text-[11px] text-warning">
+                      {response.meta.warnings.map((warning) => (
+                        <p key={warning}>{warning}</p>
+                      ))}
+                    </div>
+                  ) : null}
+                  <JsonViewer
+                    value={response.data ?? null}
+                    filename={`aicrawl-${response.meta?.job_id ?? "data"}.json`}
+                    maxHeight="22rem"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={async () => {
+                        if (await copyText(JSON.stringify(response, null, 2))) {
+                          toast.success("Response copied");
+                        }
+                      }}
+                    >
+                      <Copy /> Copy JSON
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={download}>
+                      <Download /> Download
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border px-4 py-10 text-center">
+                  <CheckCircle2 className="size-5 text-muted-foreground" />
+                  <p className="text-sm font-medium">No response yet</p>
+                  <p className="max-w-sm text-xs text-muted-foreground">
+                    Validation needs no network access. Running a request fetches the page,
+                    applies the rules and stores the job in SQLite.
                   </p>
                 </div>
-                <Switch
-                  checked={useCache}
-                  onCheckedChange={setUseCache}
-                  label="Use page cache"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="schema">JSON Schema (optional)</Label>
-                  {schemaError ? (
-                    <span className="text-[10px] text-destructive">
-                      {schemaError}
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">
-                      validated server-side
-                    </span>
-                  )}
-                </div>
-                <Textarea
-                  id="schema"
-                  rows={8}
-                  placeholder={'{\n  "type": "object",\n  "properties": {}\n}'}
-                  value={schemaText}
-                  onChange={(event) => setSchemaText(event.target.value)}
-                  className={cn(
-                    "font-mono text-[11px]",
-                    schemaError && "border-destructive/50",
-                  )}
-                  spellCheck={false}
-                />
-              </div>
-
-              <Button
-                className="w-full"
-                size="lg"
-                onClick={run}
-                disabled={phase === "running" || Boolean(schemaError)}
-              >
-                {phase === "running" ? (
-                  <>
-                    <Loader2 className="animate-spin" /> Extracting…
-                  </>
-                ) : (
-                  <>
-                    <Play /> Start extraction
-                  </>
-                )}
-              </Button>
+              )}
             </CardContent>
           </Card>
-        </div>
 
-        <div className="space-y-4 xl:col-span-2">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Clock className="size-4 text-primary" /> Live job status
+                <History className="size-4" /> Request history
               </CardTitle>
-              <CardDescription>
-                The same job record is visible to the CLI and MCP clients.
-              </CardDescription>
+              <CardDescription>Recent runs are kept in this browser only.</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <Timeline phase={phase} elapsed={elapsed} />
-              {result ? (
-                <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">job</span>
-                    <StatusBadge status={result.job.status} />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">mode</span>
-                    <ModeBadge mode={result.outcome.mode} />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">job id</span>
-                    <span className="font-mono text-[10px]">
-                      {result.job.id}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">fetch</span>
-                    <span>{formatDuration(result.outcome.fetch_ms)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">total</span>
-                    <span>{formatDuration(result.outcome.duration_ms)}</span>
-                  </div>
-                </div>
-              ) : null}
-
-              {result?.outcome.warnings.length ? (
-                <div className="space-y-1.5 rounded-lg border border-warning/30 bg-warning/10 p-3">
-                  {result.outcome.warnings.map((warning) => (
-                    <p
-                      key={warning}
-                      className="flex items-start gap-2 text-[11px] text-warning"
+            <CardContent>
+              {history.length ? (
+                <div className="space-y-1.5">
+                  {history.map((entry) => (
+                    <button
+                      key={`${entry.at}-${entry.jobId ?? "local"}`}
+                      onClick={() => setText(entry.request)}
+                      className="flex w-full items-center justify-between gap-2 rounded-md border border-border/70 px-3 py-2 text-left text-[11px] transition hover:bg-muted"
                     >
-                      <AlertTriangle className="mt-0.5 size-3 shrink-0" />
-                      {warning}
-                    </p>
+                      <span className="truncate font-mono">
+                        {entry.jobId ?? entry.request.slice(0, 40)}
+                      </span>
+                      <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
+                        {typeof entry.items === "number" ? <span>{entry.items} items</span> : null}
+                        <span>{new Date(entry.at).toLocaleTimeString()}</span>
+                        <Badge variant={entry.success ? "success" : "destructive"}>
+                          {entry.success ? "ok" : "failed"}
+                        </Badge>
+                      </span>
+                    </button>
                   ))}
                 </div>
-              ) : null}
-
-              {failure ? (
-                <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-3 text-[11px] text-destructive">
-                  {failure}
-                </div>
-              ) : null}
-
-              {!result && !failure ? (
-                <p className="text-[11px] leading-relaxed text-muted-foreground">
-                  Requests are validated against the SSRF policy, robots.txt and
-                  crawl limits before anything is fetched.
-                </p>
-              ) : null}
+              ) : (
+                <p className="text-xs text-muted-foreground">Nothing yet.</p>
+              )}
             </CardContent>
           </Card>
-
-          {result ? (
-            <Card>
-              <CardHeader>
-                <CardTitle>Page</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1.5 text-xs">
-                <div className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">title</span>
-                  <span className="truncate text-right">
-                    {result.outcome.page.title ?? "—"}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">status</span>
-                  <span className="font-mono">
-                    {result.outcome.page.status}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">words</span>
-                  <span>{result.outcome.page.word_count}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="text-muted-foreground">cache</span>
-                  <span>{result.outcome.page.from_cache ? "hit" : "miss"}</span>
-                </div>
-                {result.result.provider ? (
-                  <div className="flex justify-between gap-3">
-                    <span className="text-muted-foreground">provider</span>
-                    <span className="truncate text-right font-mono text-[10px]">
-                      {result.result.provider}
-                    </span>
-                  </div>
-                ) : null}
-              </CardContent>
-            </Card>
-          ) : null}
         </div>
       </div>
+    </div>
+  );
+}
 
-      {result ? (
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <FileJson className="size-4 text-primary" /> Output
-              </CardTitle>
-              <CardDescription>
-                {result.result.validated
-                  ? "Payload validated against your JSON Schema."
-                  : "No schema requested; payload returned as extracted."}
-              </CardDescription>
-            </div>
-            {result.result.validated ? (
-              <Badge variant="success">
-                <CheckCircle2 className="size-3" /> validated
-              </Badge>
-            ) : null}
-          </CardHeader>
-          <CardContent>
-            <Tabs defaultValue="data">
-              <TabsList>
-                <TabsTrigger value="data">Structured data</TabsTrigger>
-                <TabsTrigger value="rendered">Rendered output</TabsTrigger>
-                <TabsTrigger value="raw">Full response</TabsTrigger>
-              </TabsList>
-              <TabsContent value="data">
-                <JsonViewer value={result.outcome.data} />
-              </TabsContent>
-              <TabsContent value="rendered">
-                <pre className="scrollbar-thin max-h-[28rem] overflow-auto rounded-lg border border-border bg-code p-4 text-[12px] leading-relaxed whitespace-pre-wrap">
-                  {result.outcome.output}
-                </pre>
-              </TabsContent>
-              <TabsContent value="raw">
-                <JsonViewer value={result} filename="aicrawl-extraction.json" />
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
+function MetaSummary({ response }: { response: ExtractionResponse }) {
+  const meta = response.meta;
+  if (!meta) {
+    return (
+      <p className="text-[11px] text-muted-foreground">
+        Validation responses do not include page metadata.
+      </p>
+    );
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5 text-[11px]">
+      <Badge variant="outline">{meta.pages_processed} page(s)</Badge>
+      <Badge variant="outline">{meta.items_extracted} item(s)</Badge>
+      <Badge variant="outline">{formatDuration(meta.duration_ms)}</Badge>
+      <Badge variant="outline">{meta.render}</Badge>
+      {meta.projection ? <Badge variant="outline">{meta.projection}</Badge> : null}
+      {meta.cached ? <Badge variant="outline">cache</Badge> : null}
+      {meta.truncated ? <Badge variant="warning">truncated</Badge> : null}
+      {meta.job_id ? (
+        <Badge variant="outline">
+          <span className="font-mono">{meta.job_id}</span>
+        </Badge>
       ) : null}
     </div>
   );
 }
 
-function Toggle({
-  label,
-  hint,
-  checked,
-  onChange,
-}: {
-  label: string;
-  hint: string;
-  checked: boolean;
-  onChange: (value: boolean) => void;
-}) {
+function Issues({ issues }: { issues: Issue[] }) {
+  if (!issues.length) return null;
   return (
-    <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
-      <div>
-        <p className="text-xs font-medium">{label}</p>
-        <p className="text-[10px] text-muted-foreground">{hint}</p>
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} label={label} />
-    </div>
-  );
-}
-
-function Timeline({ phase, elapsed }: { phase: Phase; elapsed: number }) {
-  const steps = [
-    { key: "fetch", label: "Fetch with SSRF + robots checks" },
-    { key: "parse", label: "Parse HTML / readable content" },
-    { key: "extract", label: "Extract and validate JSON" },
-  ];
-  return (
-    <div className="space-y-2">
-      {steps.map((step, index) => {
-        const active =
-          phase === "running" &&
-          ((index === 0 && elapsed < 700) ||
-            (index === 1 && elapsed >= 700 && elapsed < 1400) ||
-            (index === 2 && elapsed >= 1400));
-        const done =
-          phase === "done" ||
-          (phase === "running" && !active && elapsed > (index + 1) * 700);
-        const failed = phase === "failed" && index === steps.length - 1;
-        return (
-          <div key={step.key} className="flex items-center gap-2 text-xs">
-            {failed ? (
-              <AlertTriangle className="size-3.5 text-destructive" />
-            ) : done ? (
-              <CheckCircle2 className="size-3.5 text-success" />
-            ) : active ? (
-              <Loader2 className="size-3.5 animate-spin text-primary" />
-            ) : (
-              <span className="size-3.5 rounded-full border border-border" />
-            )}
-            <span
-              className={cn(
-                "text-muted-foreground",
-                (active || done) && "text-foreground",
-                failed && "text-destructive",
-              )}
-            >
-              {step.label}
-            </span>
-          </div>
-        );
-      })}
-      <p className="pt-1 text-[10px] text-muted-foreground">
-        {phase === "running"
-          ? `${(elapsed / 1000).toFixed(1)}s elapsed`
-          : phase === "done"
-            ? "Completed"
-            : phase === "failed"
-              ? "Failed"
-              : "Ready"}
-      </p>
+    <div className="overflow-hidden rounded-md border border-warning/30">
+      <table className="w-full text-left text-[11px]">
+        <thead className="bg-warning/10 text-warning">
+          <tr>
+            <th className="px-2 py-1 font-medium">Field</th>
+            <th className="px-2 py-1 font-medium">Code</th>
+            <th className="px-2 py-1 font-medium">Required</th>
+          </tr>
+        </thead>
+        <tbody>
+          {issues.slice(0, 12).map((issue, index) => (
+            <tr key={`${issue.field}-${index}`} className="border-t border-border/70">
+              <td className="px-2 py-1 font-mono">{issue.field}</td>
+              <td className="px-2 py-1 text-muted-foreground">{issue.code}</td>
+              <td className="px-2 py-1">{issue.required ? "yes" : "no"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

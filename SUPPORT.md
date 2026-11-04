@@ -7,8 +7,10 @@ include so your question can be answered quickly.
 
 - [README](README.md) — installation, CLI, dashboard, REST API, MCP and
   configuration.
-- [Troubleshooting and limitations](README.md#limitations) — rendering, search
-  scope, AI providers and site-policy boundaries.
+- [Troubleshooting and limitations](README.md#security) — rendering, request
+  limits, SSRF policy and site-policy boundaries.
+- [Request schema](docs/request-schema.md) — every selector, transform and
+  validation option.
 - [Changelog](CHANGELOG.md) — changes between experimental builds.
 - [Security policy](SECURITY.md) — private vulnerability reporting only.
 
@@ -24,8 +26,8 @@ include so your question can be answered quickly.
 
 ## What to include
 
-- AICrawl version (`aicrawl version`) and how you run it (CLI, `start`, daemon,
-  API, MCP).
+- AICrawl version (`aicrawl --version`) and how you run it (CLI, `aicrawl api`,
+  `aicrawl mcp`).
 - Operating system and install method (release binary or source build).
 - The exact command or HTTP request, with secrets and private data removed.
 - Expected versus actual behavior.

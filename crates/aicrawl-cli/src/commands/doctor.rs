@@ -1,273 +1,144 @@
-//! `aicrawl doctor`
+//! `aicrawl doctor` — local installation checks.
 
-use std::time::Duration;
-
+use aicrawl_core::error::Result;
 use clap::Args;
 use serde_json::json;
 
-use aicrawl_core::error::{AicrawlError, Result};
-
-use super::Ctx;
+use crate::commands::{self, write_json, Ctx};
 use crate::terminal;
 
 /// Arguments for `aicrawl doctor`.
 #[derive(Debug, Args)]
 pub struct DoctorArgs {
-    /// Skip the outbound network test.
-    #[arg(long)]
-    pub offline: bool,
-
-    /// Print JSON instead of a report.
+    /// Print machine-readable JSON.
     #[arg(long)]
     pub json: bool,
 }
 
-struct Check {
-    name: &'static str,
-    ok: bool,
-    critical: bool,
-    detail: String,
-}
+/// Runs `aicrawl doctor`.
+pub async fn run(ctx: &Ctx, args: DoctorArgs) -> Result<i32> {
+    let engine = ctx.engine().await?;
+    let health = engine.health().await;
 
-/// Runs local diagnostics and prints a coloured report.
-pub async fn run(ctx: &Ctx, args: DoctorArgs) -> Result<()> {
-    let theme = ctx.theme;
-    let mut checks: Vec<Check> = Vec::new();
-
-    // Data directory writability.
-    let probe = ctx.data_dir.join(".aicrawl-write-test");
-    let writable = std::fs::write(&probe, b"ok").is_ok() && std::fs::remove_file(&probe).is_ok();
-    checks.push(Check {
-        name: "data directory writable",
-        ok: writable,
-        critical: true,
-        detail: ctx.data_dir.display().to_string(),
-    });
-
-    // Config file.
-    let config_exists = ctx.config_path.exists();
-    checks.push(Check {
-        name: "config file",
-        ok: true,
-        critical: false,
-        detail: if config_exists {
-            ctx.config_path.display().to_string()
-        } else {
-            format!("{} (defaults in use)", ctx.config_path.display())
-        },
-    });
-
-    // Engine + database.
-    let engine = match ctx.engine().await {
-        Ok(engine) => {
-            checks.push(Check {
-                name: "SQLite database",
-                ok: true,
-                critical: true,
-                detail: engine.store().location().to_string(),
-            });
-            Some(engine)
-        }
-        Err(err) => {
-            checks.push(Check {
-                name: "SQLite database",
-                ok: false,
-                critical: true,
-                detail: err.to_string(),
-            });
-            None
-        }
-    };
-
-    if let Some(engine) = engine.as_ref() {
-        checks.push(Check {
-            name: "secret store",
-            ok: engine.secrets().key_path().exists() || std::env::var("AICRAWL_SECRET_KEY").is_ok(),
-            critical: false,
-            detail: engine.secrets().key_path().display().to_string(),
-        });
-
-        let ai = engine.ai_status().await;
-        checks.push(Check {
-            name: "external AI provider",
-            ok: ai.configured,
-            critical: false,
-            detail: ai.detail,
-        });
-
-        let browser = engine.fetcher().renderer().status().await;
-        checks.push(Check {
-            name: "Playwright rendering",
-            ok: browser.available,
-            critical: false,
-            detail: browser.detail,
-        });
-
-        let security = &engine.config().security;
-        checks.push(Check {
-            name: "SSRF protection",
-            ok: !security.allow_private_networks,
-            critical: false,
-            detail: if security.allow_private_networks {
-                "private networks are ALLOWED (development setting)".into()
-            } else {
-                "private and loopback targets are blocked".into()
-            },
-        });
-        checks.push(Check {
-            name: "robots.txt",
-            ok: engine.config().crawler.respect_robots_txt,
-            critical: false,
-            detail: if engine.config().crawler.respect_robots_txt {
-                "respected".into()
-            } else {
-                "DISABLED (operator override)".into()
-            },
-        });
-
-        if !args.offline {
-            let started = std::time::Instant::now();
-            let result = tokio::time::timeout(
-                Duration::from_secs(20),
-                engine.inspect("https://example.com", false),
-            )
-            .await;
-            let (ok, detail) = match result {
-                Ok(Ok(report)) => (
-                    true,
-                    format!(
-                        "example.com reachable ({}, {}ms)",
-                        report.status, report.elapsed_ms
-                    ),
-                ),
-                Ok(Err(err)) => (false, format!("outbound fetch failed: {err}")),
-                Err(_) => (false, "outbound fetch timed out".into()),
-            };
-            checks.push(Check {
-                name: "outbound network",
-                ok,
-                critical: false,
-                detail: format!("{detail} ({}ms)", started.elapsed().as_millis()),
-            });
-        }
-    }
-
-    // Listener availability.
-    checks.push(Check {
-        name: "API port",
-        ok: port_free_or_running(&ctx.config.server.api_host, ctx.config.server.api_port).await,
-        critical: false,
-        detail: format!(
-            "{}:{}",
-            ctx.config.server.api_host, ctx.config.server.api_port
-        ),
-    });
-    checks.push(Check {
-        name: "MCP port",
-        ok: port_free_or_running(&ctx.config.server.mcp_host, ctx.config.server.mcp_port).await,
-        critical: false,
-        detail: format!(
-            "{}:{}",
-            ctx.config.server.mcp_host, ctx.config.server.mcp_port
-        ),
-    });
-
-    let critical_failures = checks.iter().filter(|c| !c.ok && c.critical).count();
-    let warnings = checks.iter().filter(|c| !c.ok && !c.critical).count();
+    let database_ok = health["database"]["status"] == json!("ok");
+    let database_path = health["database"]["path"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+    let data_dir_ok = ctx.data_dir.exists();
+    let config_present = ctx.config_path.exists();
+    let dashboard_ok = aicrawl_core::dashboard::available();
+    let render_visible = health["renderer"]["available"].as_bool().unwrap_or(false);
+    let render_detail = health["renderer"]["detail"]
+        .as_str()
+        .unwrap_or("browser rendering not detected")
+        .to_string();
+    let stats = &health["stats"];
 
     if args.json {
-        let items: Vec<serde_json::Value> = checks
-            .iter()
-            .map(|check| {
-                json!({
-                    "check": check.name,
-                    "ok": check.ok,
-                    "critical": check.critical,
-                    "detail": check.detail
-                })
-            })
-            .collect();
-        println!(
-            "{}",
-            serde_json::to_string_pretty(&json!({
-                "ok": critical_failures == 0,
-                "critical_failures": critical_failures,
-                "warnings": warnings,
-                "checks": items
-            }))?
-        );
-    } else {
-        terminal::print_banner(&theme);
-        terminal::section(&theme, "Diagnostics");
-        for check in &checks {
-            let mark = if check.ok {
-                theme.ok_mark()
-            } else if check.critical {
-                theme.err_mark()
-            } else {
-                theme.warn_mark()
-            };
-            println!(
-                "  {} {:<26} {}",
-                mark,
-                if check.ok {
-                    check.name.to_string()
-                } else {
-                    theme.bold(check.name)
-                },
-                theme.dim(&check.detail)
-            );
-        }
-        terminal::section(&theme, "Summary");
-        if critical_failures == 0 {
-            println!(
-                "  {} {}",
-                theme.ok_mark(),
-                theme.success(format!(
-                    "Ready to crawl. {warnings} warning(s), {critical_failures} blocking issue(s)."
-                ))
-            );
-        } else {
-            println!(
-                "  {} {}",
-                theme.err_mark(),
-                theme.error(format!(
-                    "{critical_failures} blocking issue(s), {warnings} warning(s)."
-                ))
-            );
-        }
-        println!(
-            "  {} {}",
-            theme.arrow(),
-            theme.dim(
-                "AI extraction is optional: deterministic extraction works without a provider."
-            )
-        );
+        write_json(
+            &json!({
+                "success": database_ok && data_dir_ok,
+                "data": {
+                    "version": aicrawl_core::VERSION,
+                    "schema_version": aicrawl_core::SCHEMA_VERSION,
+                    "database": { "ok": database_ok, "path": database_path },
+                    "data_dir": { "ok": data_dir_ok, "path": ctx.data_dir.display().to_string() },
+                    "config": { "present": config_present, "path": ctx.config_path.display().to_string() },
+                    "dashboard": { "embedded": dashboard_ok },
+                    "renderer": { "available": render_visible, "detail": render_detail },
+                    "security": health["security"].clone(),
+                    "stats": stats.clone(),
+                    "ai_required": false,
+                }
+            }),
+            None,
+            true,
+        )?;
+        return Ok(if database_ok { 0 } else { 1 });
     }
 
-    if critical_failures > 0 {
-        return Err(AicrawlError::Other(format!(
-            "doctor found {critical_failures} blocking issue(s)"
-        )));
+    let theme = ctx.theme;
+    eprintln!("{}", theme.bold("AICrawl doctor"));
+    terminal::kv(&theme, "version", aicrawl_core::VERSION);
+    terminal::kv(
+        &theme,
+        "schema",
+        format!("v{}", aicrawl_core::SCHEMA_VERSION),
+    );
+    terminal::kv(&theme, "data dir", ctx.data_dir.display());
+    terminal::kv(
+        &theme,
+        "config",
+        format!(
+            "{} ({})",
+            ctx.config_path.display(),
+            if config_present {
+                "present"
+            } else {
+                "defaults"
+            }
+        ),
+    );
+    terminal::kv(
+        &theme,
+        "database",
+        format!(
+            "{} ({})",
+            database_path,
+            if database_ok { "ok" } else { "unavailable" }
+        ),
+    );
+    terminal::kv(
+        &theme,
+        "dashboard",
+        if dashboard_ok {
+            "embedded".to_string()
+        } else {
+            "not built (run: cd frontend && npm run build)".to_string()
+        },
+    );
+    terminal::kv(
+        &theme,
+        "playwright",
+        if render_visible {
+            "available (optional renderer)".to_string()
+        } else {
+            format!("{render_detail} (optional; HTTP-only extraction works)")
+        },
+    );
+    terminal::kv(
+        &theme,
+        "robots.txt",
+        if health["security"]["respect_robots_txt"] == json!(true) {
+            "enforced".to_string()
+        } else {
+            "disabled".to_string()
+        },
+    );
+    terminal::kv(
+        &theme,
+        "stats",
+        format!(
+            "{} jobs, {} pages, {} results",
+            stats["jobs_total"], stats["pages_total"], stats["results_total"]
+        ),
+    );
+    terminal::kv(&theme, "ai", "not required");
+
+    if database_ok && data_dir_ok {
+        eprintln!("{} ready", theme.ok_mark());
+        Ok(0)
+    } else {
+        eprintln!(
+            "{} fix the database or data directory first",
+            theme.error_mark()
+        );
+        Ok(1)
     }
-    Ok(())
 }
 
-async fn port_free_or_running(host: &str, port: u16) -> bool {
-    let host = match host {
-        "0.0.0.0" | "::" => "127.0.0.1",
-        other => other,
-    };
-    let address = format!("{host}:{port}");
-    if tokio::time::timeout(
-        Duration::from_millis(400),
-        tokio::net::TcpStream::connect(&address),
-    )
-    .await
-    .map(|result| result.is_ok())
-    .unwrap_or(false)
-    {
-        return true;
-    }
-    tokio::net::TcpListener::bind(&address).await.is_ok()
+#[allow(dead_code)]
+fn duration(ms: u64) -> String {
+    commands::human_duration(ms)
 }

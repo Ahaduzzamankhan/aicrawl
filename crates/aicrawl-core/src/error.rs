@@ -1,4 +1,8 @@
 //! Error type shared by the CLI, REST API, MCP server and core engine.
+//!
+//! AICrawl has never had a model in the request path, and this release removes
+//! the optional provider integration entirely: every failure is either a
+//! request, network, policy, extraction or storage problem.
 
 use thiserror::Error;
 
@@ -8,7 +12,7 @@ pub type Result<T> = std::result::Result<T, AicrawlError>;
 /// All failures produced by the AICrawl engine.
 #[derive(Debug, Error)]
 pub enum AicrawlError {
-    /// The caller supplied an invalid argument (URL, schema, port, ...).
+    /// The caller supplied an invalid argument (URL, selector, schema, limit, ...).
     #[error("invalid input: {0}")]
     InvalidInput(String),
 
@@ -40,21 +44,13 @@ pub enum AicrawlError {
     #[error("unsupported content type: {0}")]
     UnsupportedContent(String),
 
-    /// Deterministic or AI extraction failed.
+    /// Deterministic extraction failed.
     #[error("extraction failed: {0}")]
     Extraction(String),
 
     /// JSON Schema validation failed.
     #[error("schema validation failed: {0}")]
     Schema(String),
-
-    /// The configured AI provider returned an error.
-    #[error("ai provider error: {0}")]
-    Ai(String),
-
-    /// No AI provider is configured, so semantic extraction is unavailable.
-    #[error("no AI provider is configured; configure one with `aicrawl config` or the dashboard")]
-    AiNotConfigured,
 
     /// A job, result, page or key could not be found.
     #[error("not found: {0}")]
@@ -97,34 +93,32 @@ impl AicrawlError {
     /// Stable machine-readable error code used by the REST API and MCP server.
     pub fn code(&self) -> &'static str {
         match self {
-            Self::InvalidInput(_) => "invalid_input",
-            Self::Blocked(_) => "blocked_by_policy",
-            Self::Network(_) => "network_error",
-            Self::Http { .. } => "http_error",
-            Self::Timeout(_) => "timeout",
-            Self::RobotsDisallowed(_) => "robots_disallowed",
-            Self::BodyTooLarge { .. } => "body_too_large",
-            Self::UnsupportedContent(_) => "unsupported_content",
-            Self::Extraction(_) => "extraction_failed",
-            Self::Schema(_) => "schema_validation_failed",
-            Self::Ai(_) => "ai_provider_error",
-            Self::AiNotConfigured => "ai_not_configured",
-            Self::NotFound(_) => "not_found",
-            Self::Database(_) => "database_error",
-            Self::Io(_) => "io_error",
-            Self::Json(_) => "json_error",
-            Self::Config(_) => "config_error",
-            Self::BrowserUnavailable(_) => "browser_unavailable",
-            Self::Unauthorized(_) => "unauthorized",
-            Self::RateLimited(_) => "rate_limited",
-            Self::Other(_) => "internal_error",
+            Self::InvalidInput(_) => "INVALID_REQUEST",
+            Self::Blocked(_) => "BLOCKED_BY_POLICY",
+            Self::Network(_) => "NETWORK_ERROR",
+            Self::Http { .. } => "HTTP_ERROR",
+            Self::Timeout(_) => "TIMEOUT",
+            Self::RobotsDisallowed(_) => "ROBOTS_DISALLOWED",
+            Self::BodyTooLarge { .. } => "BODY_TOO_LARGE",
+            Self::UnsupportedContent(_) => "UNSUPPORTED_CONTENT",
+            Self::Extraction(_) => "EXTRACTION_FAILED",
+            Self::Schema(_) => "SCHEMA_VALIDATION_FAILED",
+            Self::NotFound(_) => "NOT_FOUND",
+            Self::Database(_) => "DATABASE_ERROR",
+            Self::Io(_) => "IO_ERROR",
+            Self::Json(_) => "JSON_ERROR",
+            Self::Config(_) => "CONFIG_ERROR",
+            Self::BrowserUnavailable(_) => "RENDER_UNAVAILABLE",
+            Self::Unauthorized(_) => "UNAUTHORIZED",
+            Self::RateLimited(_) => "RATE_LIMITED",
+            Self::Other(_) => "INTERNAL_ERROR",
         }
     }
 
     /// HTTP status code that best represents this error.
     pub fn http_status(&self) -> u16 {
         match self {
-            Self::InvalidInput(_) | Self::Json(_) | Self::Schema(_) => 400,
+            Self::InvalidInput(_) | Self::Json(_) => 400,
             Self::Unauthorized(_) => 401,
             Self::Blocked(_) | Self::RobotsDisallowed(_) => 403,
             Self::NotFound(_) => 404,
@@ -137,9 +131,10 @@ impl AicrawlError {
             }
             Self::Timeout(_) => 504,
             Self::RateLimited(_) => 429,
-            Self::AiNotConfigured | Self::BrowserUnavailable(_) => 503,
+            Self::Schema(_) => 422,
+            Self::BrowserUnavailable(_) => 503,
             Self::BodyTooLarge { .. } => 413,
-            Self::Ai(_) | Self::Network(_) | Self::UnsupportedContent(_) => 502,
+            Self::Network(_) | Self::UnsupportedContent(_) => 502,
             _ => 500,
         }
     }
@@ -148,7 +143,64 @@ impl AicrawlError {
     pub fn retryable(&self) -> bool {
         matches!(
             self,
-            Self::Network(_) | Self::Timeout(_) | Self::RateLimited(_) | Self::Ai(_)
+            Self::Network(_) | Self::Timeout(_) | Self::RateLimited(_)
         ) || matches!(self, Self::Http { status, .. } if *status >= 500)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn codes_and_statuses_are_stable() {
+        let cases: Vec<(AicrawlError, &str, u16)> = vec![
+            (
+                AicrawlError::InvalidInput("bad selector".into()),
+                "INVALID_REQUEST",
+                400,
+            ),
+            (
+                AicrawlError::Blocked("loopback".into()),
+                "BLOCKED_BY_POLICY",
+                403,
+            ),
+            (
+                AicrawlError::RobotsDisallowed("https://x/".into()),
+                "ROBOTS_DISALLOWED",
+                403,
+            ),
+            (
+                AicrawlError::Schema("missing field".into()),
+                "SCHEMA_VALIDATION_FAILED",
+                422,
+            ),
+            (
+                AicrawlError::BrowserUnavailable("no bridge".into()),
+                "RENDER_UNAVAILABLE",
+                503,
+            ),
+            (AicrawlError::NotFound("job".into()), "NOT_FOUND", 404),
+        ];
+        for (error, code, status) in cases {
+            assert_eq!(error.code(), code);
+            assert_eq!(error.http_status(), status);
+        }
+    }
+
+    #[test]
+    fn retryable_is_transport_only() {
+        assert!(AicrawlError::Timeout(1000).retryable());
+        assert!(AicrawlError::Http {
+            status: 503,
+            url: "https://x/".into()
+        }
+        .retryable());
+        assert!(!AicrawlError::InvalidInput("x".into()).retryable());
+        assert!(!AicrawlError::Http {
+            status: 404,
+            url: "https://x/".into()
+        }
+        .retryable());
     }
 }

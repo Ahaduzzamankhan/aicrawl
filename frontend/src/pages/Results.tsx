@@ -8,7 +8,7 @@ import {
 import { api, type ExtractedResult } from "@/lib/api";
 import { usePolling } from "@/hooks/usePolling";
 import { PageHeader } from "@/components/PageHeader";
-import { StatusBadge, ModeBadge } from "@/components/StatusBadge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { JsonViewer } from "@/components/JsonViewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -121,7 +121,7 @@ export function Results() {
                     onClick={() => setSelected(result)}
                   >
                     <TableCell>
-                      <ModeBadge mode={result.mode} />
+                      <Badge variant="outline">{result.mode}</Badge>
                     </TableCell>
                     <TableCell className="max-w-[18rem] truncate font-mono text-xs">
                       {result.url}
@@ -182,12 +182,9 @@ export function Results() {
           {selected ? (
             <>
               <div className="flex flex-wrap items-center gap-2 text-xs">
-                <ModeBadge mode={selected.mode} />
+                <Badge variant="outline">{selected.mode}</Badge>
                 {selected.validated ? (
                   <Badge variant="success">schema validated</Badge>
-                ) : null}
-                {selected.provider ? (
-                  <Badge variant="outline">{selected.provider}</Badge>
                 ) : null}
                 <span className="ml-auto text-muted-foreground">
                   {formatDuration(selected.duration_ms)} ·{" "}

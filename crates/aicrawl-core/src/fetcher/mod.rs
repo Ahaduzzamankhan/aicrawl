@@ -108,7 +108,7 @@ impl Fetcher {
             policy: UrlPolicy::from_config(security),
             limiter: Arc::new(HostRateLimiter::new(security.rate_limit_per_minute)),
             store,
-            renderer: PlaywrightRenderer::from_env(crawler.timeout_ms * 2),
+            renderer: PlaywrightRenderer::from_env(crawler.render_timeout_ms),
             crawler,
             cache,
             robots_memory: Mutex::new(HashMap::new()),

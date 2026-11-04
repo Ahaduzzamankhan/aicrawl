@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
-  BrainCircuit,
   Database,
   Globe,
   ListChecks,
@@ -16,7 +15,7 @@ import { api } from "@/lib/api";
 import { usePolling } from "@/hooks/usePolling";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
-import { StatusBadge, ModeBadge } from "@/components/StatusBadge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,7 +55,6 @@ export function Overview() {
   }
 
   const stats = data?.stats;
-  const ai = data?.ai;
 
   return (
     <div className="space-y-6">
@@ -108,7 +106,7 @@ export function Overview() {
         <StatCard
           label="Websites seen"
           value={stats?.websites_total ?? 0}
-          hint={`${data?.cache_entries ?? 0} pages cached`}
+          hint="cached in SQLite"
           icon={<Globe className="size-4" />}
         />
       </div>
@@ -188,50 +186,36 @@ export function Overview() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <BrainCircuit className="size-4 text-primary" />
-                External AI provider
+                <ShieldCheck className="size-4 text-primary" /> Deterministic engine
               </CardTitle>
               <CardDescription>
-                AICrawl never ships a model. It calls the provider you configure.
+                CSS and XPath rules, JSON-LD and schema validation. No model, no API key.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">state</span>
-                {ai?.configured ? (
-                  <Badge variant="success">configured</Badge>
+            <CardContent className="space-y-2 text-xs">
+              <Row label="Request schema">
+                <Badge variant="outline">v{health.data?.schema_version ?? "1"}</Badge>
+              </Row>
+              <Row label="Selectors">
+                <span className="font-mono">CSS · XPath</span>
+              </Row>
+              <Row label="Renderer">
+                {health.data?.renderer.available ? (
+                  <Badge variant="success">Playwright</Badge>
                 ) : (
-                  <Badge variant="warning">not configured</Badge>
+                  <Badge variant="outline">HTTP only</Badge>
                 )}
+              </Row>
+              <Row label="AI required">
+                <Badge variant="success">never</Badge>
+              </Row>
+              <div className="pt-2">
+                <Button variant="outline" size="sm" className="w-full" asChild>
+                  <Link to="/extract" className="inline-flex items-center gap-1">
+                    Open request workbench <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
               </div>
-              {ai?.configured ? (
-                <div className="space-y-1 text-xs">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-muted-foreground">provider</span>
-                    <span className="truncate font-medium">{ai.label}</span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-muted-foreground">model</span>
-                    <span className="truncate font-mono text-[11px]">
-                      {ai.model}
-                    </span>
-                  </div>
-                  <div className="flex justify-between gap-3">
-                    <span className="text-muted-foreground">source</span>
-                    <span>{ai.source}</span>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Deterministic extraction works now. Add an OpenAI-compatible or
-                  Ollama provider for semantic extraction.
-                </p>
-              )}
-              <Button variant="outline" size="sm" className="w-full" asChild>
-                <Link to="/providers" className="inline-flex items-center gap-1">
-                  Manage providers <ArrowRight className="size-3.5" />
-                </Link>
-              </Button>
             </CardContent>
           </Card>
 
@@ -308,7 +292,7 @@ export function Overview() {
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <ModeBadge mode={result.mode} />
+                      <Badge variant="outline">{result.mode}</Badge>
                       <span className="truncate font-mono text-xs">
                         {result.url}
                       </span>

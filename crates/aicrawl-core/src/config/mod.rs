@@ -8,7 +8,15 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{AicrawlError, Result};
 
-/// Directory that holds the database, key file and config (`~/.aicrawl` by default).
+/// The user's home directory (`USERPROFILE` on Windows, `HOME` elsewhere).
+pub fn home_dir() -> PathBuf {
+    env::var_os("USERPROFILE")
+        .or_else(|| env::var_os("HOME"))
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."))
+}
+
+/// Directory that holds the database, key material and config (`~/.aicrawl`).
 pub fn data_dir() -> PathBuf {
     if let Ok(dir) = env::var("AICRAWL_DATA_DIR") {
         return PathBuf::from(dir);
@@ -16,10 +24,7 @@ pub fn data_dir() -> PathBuf {
     if let Ok(dir) = env::var("AICRAWL_HOME") {
         return PathBuf::from(dir);
     }
-    let home = env::var("USERPROFILE")
-        .or_else(|_| env::var("HOME"))
-        .unwrap_or_else(|_| ".".to_string());
-    PathBuf::from(home).join(".aicrawl")
+    home_dir().join(".aicrawl")
 }
 
 /// Canonical location of the config file for a data directory.
@@ -41,7 +46,7 @@ pub struct AppConfig {
     pub server: ServerConfig,
     pub crawler: CrawlerConfig,
     pub security: SecurityConfig,
-    pub ai: AiConfig,
+    pub extract: ExtractConfig,
     pub storage: StorageConfig,
     pub cache: CacheConfig,
     pub api: ApiConfig,
@@ -76,6 +81,8 @@ pub struct CrawlerConfig {
     pub max_depth: u32,
     pub concurrency: usize,
     pub timeout_ms: u64,
+    /// Timeout for the optional Playwright bridge.
+    pub render_timeout_ms: u64,
     pub max_body_bytes: usize,
     pub max_text_chars: usize,
     pub max_crawl_secs: u64,
@@ -91,6 +98,7 @@ impl Default for CrawlerConfig {
             max_depth: 2,
             concurrency: 4,
             timeout_ms: 15_000,
+            render_timeout_ms: 30_000,
             max_body_bytes: 3 * 1024 * 1024,
             max_text_chars: 60_000,
             max_crawl_secs: 180,
@@ -132,33 +140,21 @@ impl Default for SecurityConfig {
     }
 }
 
-/// AI provider defaults. Secrets are never stored in this file.
+/// Extraction limits applied to every request.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
-pub struct AiConfig {
-    /// Name of the environment variable that may hold the API key.
-    pub api_key_env: String,
-    pub base_url: String,
-    pub model: String,
-    pub max_input_chars: usize,
-    pub max_output_tokens: u32,
-    pub temperature: f32,
-    pub timeout_secs: u64,
-    /// `openai`, `openai_compatible` or `ollama`.
-    pub kind: String,
+pub struct ExtractConfig {
+    /// Hard cap on items produced by one list rule.
+    pub max_items: usize,
+    /// Maximum characters of page text kept in memory.
+    pub max_text_chars: usize,
 }
 
-impl Default for AiConfig {
+impl Default for ExtractConfig {
     fn default() -> Self {
         Self {
-            api_key_env: "OPENAI_API_KEY".into(),
-            base_url: "https://api.openai.com/v1".into(),
-            model: "gpt-4o-mini".into(),
-            max_input_chars: 24_000,
-            max_output_tokens: 1500,
-            temperature: 0.0,
-            timeout_secs: 60,
-            kind: "openai_compatible".into(),
+            max_items: 1000,
+            max_text_chars: 60_000,
         }
     }
 }
@@ -253,64 +249,47 @@ impl AppConfig {
     /// Applies `AICRAWL_*` environment overrides.
     pub fn apply_env(&mut self) {
         fn var(name: &str) -> Option<String> {
-            env::var(name).ok().filter(|v| !v.trim().is_empty())
+            env::var(name).ok().filter(|value| !value.trim().is_empty())
         }
         fn parse<T: std::str::FromStr>(name: &str) -> Option<T> {
-            var(name).and_then(|v| v.parse::<T>().ok())
+            var(name).and_then(|value| value.parse::<T>().ok())
         }
 
-        if let Some(v) = var("AICRAWL_API_HOST") {
-            self.server.api_host = v;
+        if let Some(value) = var("AICRAWL_API_HOST") {
+            self.server.api_host = value;
         }
-        if let Some(v) = parse("AICRAWL_API_PORT") {
-            self.server.api_port = v;
+        if let Some(value) = parse("AICRAWL_API_PORT") {
+            self.server.api_port = value;
         }
-        if let Some(v) = var("AICRAWL_MCP_HOST") {
-            self.server.mcp_host = v;
+        if let Some(value) = var("AICRAWL_MCP_HOST") {
+            self.server.mcp_host = value;
         }
-        if let Some(v) = parse("AICRAWL_MCP_PORT") {
-            self.server.mcp_port = v;
+        if let Some(value) = parse("AICRAWL_MCP_PORT") {
+            self.server.mcp_port = value;
         }
-        if let Some(v) = parse("AICRAWL_ALLOW_PRIVATE_NETWORKS") {
-            self.security.allow_private_networks = v;
+        if let Some(value) = parse("AICRAWL_ALLOW_PRIVATE_NETWORKS") {
+            self.security.allow_private_networks = value;
         }
-        if let Some(v) = parse("AICRAWL_RATE_LIMIT_PER_MINUTE") {
-            self.security.rate_limit_per_minute = v;
+        if let Some(value) = parse("AICRAWL_RATE_LIMIT_PER_MINUTE") {
+            self.security.rate_limit_per_minute = value;
         }
-        if let Some(v) = var("AICRAWL_ALLOWED_DOMAINS") {
-            self.security.allowed_domains = v
-                .split(',')
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .collect();
+        if let Some(value) = var("AICRAWL_ALLOWED_DOMAINS") {
+            self.security.allowed_domains = split_list(&value);
         }
-        if let Some(v) = var("AICRAWL_BLOCKED_DOMAINS") {
-            self.security.blocked_domains = v
-                .split(',')
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .collect();
+        if let Some(value) = var("AICRAWL_BLOCKED_DOMAINS") {
+            self.security.blocked_domains = split_list(&value);
         }
-        if let Some(v) = var("AICRAWL_DATABASE_PATH") {
-            self.storage.database_path = Some(PathBuf::from(v));
+        if let Some(value) = var("AICRAWL_DATABASE_PATH") {
+            self.storage.database_path = Some(PathBuf::from(value));
         }
-        if let Some(v) = var("AICRAWL_AI_BASE_URL") {
-            self.ai.base_url = v;
+        if let Some(value) = parse("AICRAWL_MAX_ITEMS") {
+            self.extract.max_items = value;
         }
-        if let Some(v) = var("AICRAWL_AI_MODEL") {
-            self.ai.model = v;
+        if let Some(value) = parse("AICRAWL_REQUIRE_API_KEY") {
+            self.api.require_api_key = value;
         }
-        if let Some(v) = var("AICRAWL_AI_KIND") {
-            self.ai.kind = v;
-        }
-        if let Some(v) = var("AICRAWL_AI_API_KEY_ENV") {
-            self.ai.api_key_env = v;
-        }
-        if let Some(v) = parse("AICRAWL_REQUIRE_API_KEY") {
-            self.api.require_api_key = v;
-        }
-        if let Some(v) = var("AICRAWL_DASHBOARD_DIST") {
-            self.api.dashboard_dist = Some(PathBuf::from(v));
+        if let Some(value) = var("AICRAWL_DASHBOARD_DIST") {
+            self.api.dashboard_dist = Some(PathBuf::from(value));
         }
     }
 
@@ -322,14 +301,18 @@ impl AppConfig {
             .unwrap_or_else(|| data_dir().join("aicrawl.db"))
     }
 
-    /// Drops secrets from a config dump before printing or returning it.
+    /// JSON-safe view of the configuration.
     pub fn redacted(&self) -> serde_json::Value {
-        let mut value = serde_json::to_value(self).unwrap_or(serde_json::Value::Null);
-        if let Some(ai) = value.get_mut("ai").and_then(|v| v.as_object_mut()) {
-            ai.remove("api_key");
-        }
-        value
+        serde_json::to_value(self).unwrap_or(serde_json::Value::Null)
     }
+}
+
+fn split_list(value: &str) -> Vec<String> {
+    value
+        .split(',')
+        .map(|part| part.trim().to_string())
+        .filter(|part| !part.is_empty())
+        .collect()
 }
 
 #[cfg(test)]
@@ -342,15 +325,25 @@ mod tests {
         assert!(!config.security.allow_private_networks);
         assert!(config.crawler.respect_robots_txt);
         assert!(config.security.max_redirects <= 10);
-        assert!(!config.ai.api_key_env.is_empty());
+        assert!(config.extract.max_items >= 100);
+        assert!(config.crawler.render_timeout_ms >= config.crawler.timeout_ms);
     }
 
     #[test]
     fn toml_round_trip() {
         let mut config = AppConfig::default();
         config.crawler.max_pages = 42;
+        config.extract.max_items = 7;
         let raw = toml::to_string_pretty(&config).unwrap();
         let parsed: AppConfig = toml::from_str(&raw).unwrap();
         assert_eq!(parsed.crawler.max_pages, 42);
+        assert_eq!(parsed.extract.max_items, 7);
+    }
+
+    #[test]
+    fn legacy_ai_section_is_ignored() {
+        let raw = "[ai]\nbase_url = \"https://api.openai.com/v1\"\n";
+        let parsed: AppConfig = toml::from_str(raw).unwrap();
+        assert_eq!(parsed.crawler.max_pages, 10);
     }
 }

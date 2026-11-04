@@ -4,343 +4,287 @@
 
 # AICrawl
 
-**One executable that lets AI agents and humans crawl permitted websites and extract structured data.**
+**Deterministic, JSON-first web data extraction — one Rust binary for the CLI, REST API, MCP and dashboard.**
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Ahaduzzamankhan/aicrawl/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/Ahaduzzamankhan/aicrawl/actions/workflows/ci.yml)
-[![Release](https://img.shields.io/github/v/release/Ahaduzzamankhan/aicrawl?include_prereleases&style=for-the-badge&logo=github&logoColor=white&label=release&color=7C3AED)](https://github.com/Ahaduzzamankhan/aicrawl/releases)
-[![Download](https://img.shields.io/badge/download-all%20platforms-0078D6?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Ahaduzzamankhan/aicrawl/releases)
-[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-0EA5E9?style=for-the-badge)](https://github.com/Ahaduzzamankhan/aicrawl/releases)
+[![Release](https://img.shields.io/github/v/release/Ahaduzzamankhan/aicrawl?style=for-the-badge&logo=github&logoColor=white&label=release&color=7C3AED)](https://github.com/Ahaduzzamankhan/aicrawl/releases)
 [![License](https://img.shields.io/badge/license-MIT-22C55E?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-CE422B?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
-[![MCP](https://img.shields.io/badge/MCP-ready-0EA5E9?style=for-the-badge)](https://modelcontextprotocol.io)
-[![PRs](https://img.shields.io/badge/PRs-welcome-EC4899?style=for-the-badge&logo=git&logoColor=white)](CONTRIBUTING.md)
+[![MCP](https://img.shields.io/badge/MCP-10%20tools-0EA5E9?style=for-the-badge)](https://modelcontextprotocol.io)
 
 **Read this in:** [English](README.md) · [বাংলা](README.bn.md) · [हिन्दी](README.hi.md) · [Español](README.es.md) · [Nederlands](README.nl.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [Русский](README.ru.md)
 
-[Quick start](#quick-start) · [Download](#download) · [MCP server](#ai-agents-mcp) · [REST API](#rest-api) · [Dashboard](#dashboard) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+[Quick start](#quick-start) · [Request schema](#request-schema) · [CLI](#cli) · [REST API](#rest-api) · [MCP](#mcp) · [Dashboard](#dashboard) · [Security](#security) · [Contributing](CONTRIBUTING.md)
 
 </div>
 
-A single executable that lets **AI agents** and **humans** crawl permitted
-websites and extract structured data.
+Send a structured JSON request; get structured, validated JSON back. AICrawl has
+no model in the request path, so results are fast, predictable and reproducible —
+no API keys, no prompts, no provider accounts.
 
-> **Experimental release:** the current version lives in
-> [`version.json`](version.json). Interfaces and storage may change between
-> experimental builds; do not rely on it for unattended production crawling yet.
+```bash
+curl -s http://127.0.0.1:8080/api/v1/extract \
+  -H 'content-type: application/json' \
+  -d '{"url":"https://example.com/products","selectors":{"products":{"type":"list","selector":".product-card","fields":{"name":{"selector":".product-title"},"price":{"selector":".price","type":"number"}}}}}'
+```
 
-Prebuilt binaries for **Windows x64, Linux x64, macOS Intel and macOS Apple
-Silicon** are attached to every [release](https://github.com/Ahaduzzamankhan/aicrawl/releases),
-together with SHA-256 checksums.
+```json
+{
+  "success": true,
+  "data": { "products": [{ "name": "Widget", "price": 19.99 }] },
+  "meta": { "url": "https://example.com/products", "pages_processed": 1, "items_extracted": 1, "duration_ms": 118, "projection": "rules" },
+  "errors": []
+}
+```
 
-One `aicrawl` binary contains:
+One `aicrawl` binary provides four interfaces over the same engine:
 
-| Surface | Who uses it | How |
+| Surface | Command | Typical use |
 | --- | --- | --- |
-| CLI | humans & scripts | `aicrawl extract`, `crawl`, `inspect`, `jobs`, … |
-| Dashboard | humans | React UI served by `aicrawl start` at `http://127.0.0.1:8080` |
-| REST API | scripts & integrations | `http://127.0.0.1:8080/api/v1` |
-| MCP server | AI agents | `aicrawl mcp stdio` or `http://127.0.0.1:8787/mcp` |
-
-<p align="center">
-  <img src="public/flowchart.png" alt="AICrawl architecture flowchart: CLI, MCP, REST API and dashboard feed one Rust engine that fetches websites, extracts structured data, applies security rules and stores results in SQLite" width="100%">
-</p>
-
-The dashboard is **embedded in the executable**; there is no separate web server
-and no asset folder to ship. All four surfaces call the same `AicrawlEngine`, so
-SSRF protection, robots.txt handling, caching and storage behave identically.
-
-AICrawl bundles **no AI model and no API keys**. Deterministic extraction works
-out of the box. If you configure an external OpenAI-compatible endpoint or a
-local Ollama server, semantic extraction becomes available; otherwise MCP
-returns the cleaned page content and structured hints for the calling agent to
-reason over.
-
-## Download
-
-Prebuilt binaries are attached to every [release](https://github.com/Ahaduzzamankhan/aicrawl/releases).
-Open the newest release and download the asset for your platform:
-
-| Platform | Asset |
-| --- | --- |
-| Windows x64 | `aicrawl-windows-x64.exe` |
-| Linux x64 | `aicrawl-linux-x64` |
-| macOS Intel (x64) | `aicrawl-macos-x64` |
-| macOS Apple Silicon (arm64) | `aicrawl-macos-arm64` |
-
-Each binary has a matching `.sha256` checksum file. Verify it before running:
-
-```bash
-# Linux
-sha256sum -c aicrawl-linux-x64.sha256
-
-# macOS
-shasum -a 256 -c aicrawl-macos-arm64.sha256
-```
-
-```powershell
-# Windows
-Get-FileHash .\aicrawl-windows-x64.exe -Algorithm SHA256
-```
-
-Make the Unix binaries executable after downloading:
-
-```bash
-chmod +x aicrawl-linux-x64 aicrawl-macos-arm64
-```
-
-The binaries are self-contained: dashboard, migrations and SQLite are compiled
-in. Only optional JavaScript rendering needs external software.
+| CLI | `aicrawl extract --input request.json` | scripts, cron, CI |
+| REST API | `aicrawl api` → `POST /api/v1/extract` | services and integrations |
+| MCP | `aicrawl mcp` (stdio) or `--http` | AI agents with strict tool schemas |
+| Dashboard | `aicrawl api` → `http://127.0.0.1:8080/` | humans writing and testing requests |
 
 ## Quick start
 
+### Build from source
+
 ```bash
-# 1. Build the dashboard, then embed it in the binary
+git clone https://github.com/Ahaduzzamankhan/aicrawl
+cd aicrawl
 cd frontend && npm ci && npm run build && cd ..
 cargo build --release
-
-# 2. Start API + dashboard + MCP (one process)
-./target/release/aicrawl start
-
-# 3. Use it
-./target/release/aicrawl extract https://example.com --query "Extract the page title and main headings"
-./target/release/aicrawl inspect https://example.com
-./target/release/aicrawl crawl https://example.com --max-pages 20 --max-depth 2 --query "Extract product prices"
+./target/release/aicrawl --version
 ```
 
-The first `start` opens `~/.aicrawl/aicrawl.db` (SQLite) and prints the
-dashboard, API and MCP URLs. Set `AICRAWL_DATA_DIR` or pass `--data-dir` to use
-another location.
+The dashboard is embedded at compile time; `npm run build` must run before the
+Rust build if you want the UI inside the binary.
+
+### First extraction
 
 ```bash
-aicrawl start --daemon      # background process, log in <data-dir>/aicrawl.log
-aicrawl status
-aicrawl stop
+# Validate without touching the network
+aicrawl validate --input examples/extract-products.json
+
+# Run it and print JSON to stdout
+aicrawl extract --input examples/extract-products.json
+
+# Pipe a request in and a result out
+cat examples/extract-products.json | aicrawl extract --stdin --compact > products.json
 ```
 
-## AI agents (MCP)
+## Request schema
 
-### stdio — recommended for desktop agents
+The contract is versioned (`"version": "1"`) and documented in
+[`docs/request-schema.md`](docs/request-schema.md), with a JSON Schema at
+[`shared/schemas/extract-request.schema.json`](shared/schemas/extract-request.schema.json).
 
-Point the agent at the same executable:
+```json
+{
+  "version": "1",
+  "url": "https://example.com/products",
+  "action": "extract",
+  "render": "auto",
+  "selectors": {
+    "products": {
+      "type": "list",
+      "selector": ".product-card",
+      "fields": {
+        "name": { "selector": ".product-title", "required": true },
+        "price": { "selector": ".price", "type": "number" },
+        "link": { "selector": "a", "type": "url" }
+      }
+    }
+  },
+  "pagination": { "enabled": true, "next_selector": "a.next", "max_pages": 5 },
+  "deduplicate": { "enabled": true, "keys": ["name"] }
+}
+```
+
+Highlights:
+
+- **Selectors**: CSS everywhere, plus a documented XPath subset
+  (`/html/body/div`, `//h2`, `[@class='card']`, `[1]`, `[last()]`, `contains(...)`).
+- **Types**: `text`, `html` (sanitized), `attribute`, `url`, `number`, `integer`,
+  `boolean`, `list`, `object`, `json_ld`, `meta`.
+- **Structured data**: JSON-LD, Open Graph, `<meta>` tags, headings, tables and
+  absolute URL resolution.
+- **Failures are explicit**: `required` fields fail with `FIELD_REQUIRED`;
+  optional misses become `null`/`default` and are listed in `errors`.
+- **Validation**: pass a JSON Schema in `schema` and non-conforming payloads are
+  rejected with `SCHEMA_VALIDATION_FAILED`.
+
+Running a request with no `selectors` returns a `document` summary (title,
+metadata, Open Graph, JSON-LD, headings, tables, links, text).
+
+## CLI
+
+| Command | Purpose |
+| --- | --- |
+| `aicrawl extract --input req.json \| --stdin \| --url <url>` | Extract one page. |
+| `aicrawl crawl --input crawl.json` | Crawl within page/depth limits. |
+| `aicrawl batch --input urls.json` | Apply one request to many URLs. |
+| `aicrawl map https://example.com` | Discover reachable URLs. |
+| `aicrawl validate --input req.json` | Check a request without network access. |
+| `aicrawl inspect https://example.com` | Structural report (metadata, JSON-LD, headings). |
+| `aicrawl jobs [--status failed]` | List stored jobs as JSON. |
+| `aicrawl results <job-id> [--format jsonl]` | Export a job's dataset. |
+| `aicrawl api [--port 8080]` | Serve REST + dashboard. |
+| `aicrawl mcp [--http]` | Serve MCP over stdio or streamable HTTP. |
+| `aicrawl config show \| path \| init` | Inspect or create configuration. |
+| `aicrawl doctor [--json]` | Check database, assets, renderer, policy. |
+
+Machine-readable commands print JSON on **stdout** and diagnostics on **stderr**.
+Exit codes: `0` success, `2` invalid request or required-field failure, `1` other
+errors. `--no-color` (or `NO_COLOR`) disables ANSI output.
+
+## REST API
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| POST | `/api/v1/extract` | Extract one page. |
+| POST | `/api/v1/crawl` | Crawl and project each page. |
+| POST | `/api/v1/batch` | Apply one request to `urls`. |
+| POST | `/api/v1/map` | Discover URLs. |
+| POST | `/api/v1/validate` | Validate a request. |
+| GET | `/api/v1/jobs` | List jobs (`status`, `limit`, `offset`). |
+| GET | `/api/v1/jobs/{id}` | Job with pages and results. |
+| GET | `/api/v1/jobs/{id}/results` | Stored payloads for a job. |
+| POST | `/api/v1/jobs/{id}/cancel` | Cancel a running crawl. |
+| GET | `/api/v1/results` \| `/results/{id}` | Browse stored results. |
+| POST | `/api/v1/export` | Export a dataset (`json` or `jsonl`). |
+| GET | `/api/v1/health` \| `/stats` \| `/settings` \| `/schema` | Runtime introspection. |
+| GET/POST/DELETE | `/api/v1/api-keys` | Manage API keys (hashes only). |
+
+The action is implied by the endpoint; everything else is the same request
+object. Errors use the shared envelope and appropriate HTTP status codes
+(`400`, `403`, `404`, `422`, `429`, `502`, `503`, `504`).
+
+Set `[api].require_api_key = true` to require `Authorization: Bearer ac_live_…`
+or `X-API-Key`. Create keys with `POST /api/v1/api-keys`; only a SHA-256 hash is
+stored.
+
+## MCP
+
+Ten task-oriented tools, each with a strict JSON schema:
+
+`extract_structured_data`, `crawl_website`, `map_website`, `inspect_website`,
+`batch_extract`, `search_pages`, `compare_pages`, `get_crawl_status`,
+`get_crawl_result`, `export_dataset`.
 
 ```json
 {
   "mcpServers": {
     "aicrawl": {
-      "command": "C:\\path\\to\\aicrawl.exe",
-      "args": ["mcp", "stdio"]
+      "command": "/absolute/path/to/aicrawl",
+      "args": ["mcp"]
     }
   }
 }
 ```
 
-### Streamable HTTP
+For HTTP transport run `aicrawl mcp --http` and point clients at
+`http://127.0.0.1:8787/mcp`.
 
-Run `aicrawl start` (or `aicrawl mcp start`) and use:
+Tool arguments are structured requests, not natural-language instructions.
+Crawled content is **untrusted data**: the engine flags prompt-injection patterns
+in extracted text as warnings and never follows instructions found in pages.
 
-```json
-{
-  "mcpServers": {
-    "aicrawl": {
-      "url": "http://127.0.0.1:8787/mcp"
-    }
-  }
-}
-```
+## Dashboard
 
-Tools:
+`aicrawl api` serves the embedded React dashboard at `http://127.0.0.1:8080/`.
+The primary workflow is the **Request Workbench**: edit a JSON request, validate
+it, run it, and inspect/copy/download the JSON response. Saved templates and
+recent requests live in the browser; jobs, results and crawl progress come from
+SQLite. Natural-language prompting is not part of the workflow.
 
-- `extract_website_data` — `url`, `query`, optional `schema`, `output_format`
-- `crawl_website` — `url`, `max_pages`, `max_depth`
-- `get_page_content` — `url`
-- `inspect_website` — `url`
-- `search_website` — `url`, `query`
-- `get_crawl_result` — `job_id`
-- `get_crawl_status` — `job_id`
-
-Page content is treated as **untrusted data**. Tool output marks it as such and
-never follows instructions found in web pages.
-
-## Humans
-
-### CLI
-
-```text
-aicrawl start [--api-port 8080] [--mcp-port 8787] [--daemon]
-aicrawl stop | status
-aicrawl extract <url> --query <text> [--schema <file|json>] [--format json|markdown|text]
-                       [--no-ai] [--render] [--no-cache]
-aicrawl crawl <url> [--max-pages N] [--max-depth N] [--query <text>] [--render]
-aicrawl inspect <url> [--render]
-aicrawl mcp start [--port 8787] | aicrawl mcp stdio
-aicrawl api start [--port 8080]
-aicrawl jobs [--status <status>] [--limit N]
-aicrawl results [--job <id>] [--limit N] [--full]
-aicrawl config show | set <key> <value> | path
-aicrawl doctor [--offline]
-aicrawl version
-```
-
-Global flags: `--no-color` (also honours `NO_COLOR`), `--config <path>`,
-`--data-dir <dir>`.
-
-### Dashboard
-
-Open `http://127.0.0.1:8080` after `aicrawl start`:
-
-- **Overview** — health, job/result counters, recent activity
-- **New Extraction** — URL, query, schema, format, render toggle
-- **Crawl Jobs** — live status, progress, cancel, job detail
-- **Results Explorer** — stored results with JSON viewer and copy/download
-- **MCP Configuration** — copy-ready stdio/HTTP configs and tool list
-- **API Keys** — create/revoke keys (shown once, stored hashed)
-- **AI Providers** — optional external providers, keys encrypted at rest
-- **Settings** — effective security limits, cache and storage controls
-
-### REST API
-
-All responses use `{ "success": true, "data": … }` or
-`{ "success": false, "error": { "code", "message", "retryable" } }`.
+For dashboard development:
 
 ```bash
-curl -s http://127.0.0.1:8080/api/v1/health
-
-curl -s -X POST http://127.0.0.1:8080/api/v1/extract \
-  -H 'content-type: application/json' \
-  -d '{"url":"https://example.com","query":"Extract the main headings","use_ai":false}'
-
-curl -s -X POST http://127.0.0.1:8080/api/v1/crawl \
-  -H 'content-type: application/json' \
-  -d '{"url":"https://example.com","max_pages":10,"max_depth":1}'
+cd frontend
+npm ci
+npm run dev     # http://localhost:5173, proxies /api/v1 to :8080
 ```
 
-Set `[api].require_api_key = true` (or bind beyond loopback) and send
-`Authorization: Bearer <key>` or `X-API-Key: <key>`. Keys are stored as SHA-256
-hashes and are only displayed once.
+## Crawling
 
-## External AI (optional)
-
-Configure a provider in **Dashboard → AI Providers** or via the API:
-
-- OpenAI-compatible: base URL, model, API key
-- Ollama: base URL (`http://127.0.0.1:11434`), model, no key
-
-API keys are encrypted with ChaCha20-Poly1305. The encryption key comes from
-`AICRAWL_SECRET_KEY` (a base64-encoded 32-byte key) or is generated once at
-`<data-dir>/secret.key` with owner-only permissions. Plaintext keys are never
-written to SQLite, logs or the dashboard.
-
-`aicrawl doctor` reports whether a provider is configured; extraction without
-one is deterministic and returns a warning rather than failing.
+- Bounded breadth-first crawl with `max_pages` (≤500) and `max_depth` (≤5).
+- Optional `sitemap.xml` discovery and `incremental` content-hash comparison.
+- One stored result per page, exportable as a dataset.
+- Cancellation via `POST /api/v1/jobs/{id}/cancel` (or `aicrawl jobs`).
+- Per-host rate limiting, redirect validation, body-size caps and the SQLite page
+  cache apply to every interface.
 
 ## Security
 
-- SSRF protection resolves DNS and rejects loopback, private, link-local,
-  multicast and metadata addresses on every redirect hop.
-- Redirects are followed manually (max 5) and re-validated each time.
-- `robots.txt` is fetched, cached and enforced by default.
-- Domain allow/deny lists, per-host rate limiting, page/depth caps, wall-clock
-  crawl budgets, request timeouts and cancellation.
-- Response bodies are size-capped, HTML is sanitized for text extraction, and
-  scripts/styles are stripped.
-- Prompt-injection markers are detected and page text is wrapped as untrusted
-  data before any external AI call.
-- Optional API-key auth; constant-time hash comparison; no keys in URLs.
-- No CAPTCHA, authentication or paywall bypass; no stealth/evasion features.
+- SSRF protection: loopback, RFC1918, link-local (including cloud metadata),
+  CGNAT, unique-local IPv6 and IPv4-mapped addresses are refused after DNS
+  resolution; private networks require an explicit opt-in.
+- robots.txt is enforced by default (`crawler.respect_robots_txt`).
+- Domain allow/block lists, redirect limits and per-host rate limits.
+- No authentication, CAPTCHA, paywall or access-control bypass — ever.
+- Extracted page text is data. Injection patterns are reported, not obeyed.
 
-## Storage
+See [SECURITY.md](SECURITY.md) for reporting.
 
-SQLite only (`sqlx`, WAL, pooled connections, prepared statements, migrations,
-indexes, transactions). Tables: jobs, pages, results, websites, settings, API
-keys, AI providers, page cache, robots cache.
+## Architecture
 
-## Building on Windows without Visual Studio
-
-The bundled SQLite needs a C compiler. If MSVC Build Tools are unavailable, use
-the GNU target with MinGW-w64 (this repository ignores `.tools/`):
-
-```bash
-# once: unpack a MinGW-w64 toolchain (gcc, dlltool, ar) into .tools/mingw64
-export PATH="$PWD/.tools/mingw64/bin:$PATH"
-export CC_x86_64_pc_windows_gnu=gcc
-export AR_x86_64_pc_windows_gnu=ar
-export CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=gcc
-export CARGO_TARGET_DIR=target-gnu
-cargo +stable-x86_64-pc-windows-gnu build --release
-# binary: target-gnu/release/aicrawl.exe
+```
+crates/aicrawl-core/src/
+  request/      # versioned JSON contract + validation
+  pipeline/     # fetch → parse → select → extract → validate
+  selectors/    # CSS, XPath subset, sanitized HTML
+  extraction/   # rules, JSON-LD, document summary, JSON Schema
+  transform/    # whitespace, numbers, URLs, type conversion
+  dedup.rs      # duplicate removal
+  crawl/ map/   # crawl engine, sitemap and link discovery
+  fetcher/      # HTTP, robots, cache, rate limits
+  browser/      # optional Playwright bridge
+  security/     # SSRF, domain policy, API key hashing
+  output/       # shared success/error envelope
+  engine/       # orchestration, jobs, storage wiring
+  api/ mcp/     # REST and MCP transports
+crates/aicrawl-cli/  # JSON-first commands
+frontend/            # React dashboard (embedded)
 ```
 
-The release executable is self-contained: dashboard, migrations and SQLite are
-compiled in. Only optional JavaScript rendering needs external software.
+Rust core, SQLite storage, React UI. One engine, one response contract.
 
-## Optional JavaScript rendering
+## Configuration
 
-SPAs are not rendered by default. To render:
+`~/.aicrawl/config.toml` (see [`aicrawl.example.toml`](aicrawl.example.toml)):
+`[server]`, `[crawler]`, `[security]`, `[extract]`, `[storage]`, `[cache]`,
+`[api]`. Environment overrides include `AICRAWL_DATA_DIR`, `AICRAWL_API_PORT`,
+`AICRAWL_ALLOW_PRIVATE_NETWORKS`, `AICRAWL_ALLOWED_DOMAINS`,
+`AICRAWL_BLOCKED_DOMAINS` and `AICRAWL_MAX_ITEMS`.
 
-```bash
-cd browser && npm install && npx playwright install chromium
-```
+Playwright is optional. Install it in `browser/` (`npm install`) to enable
+`"render": "auto"`/`"on"`; HTTP-only extraction needs nothing beyond the binary.
 
-Then pass `--render` on extract/crawl or enable render in the dashboard. Without
-the bridge, AICrawl returns an explicit “rendering unavailable” error instead of
-silently returning an empty page.
-
-## Development
+## Testing
 
 ```bash
-cargo test --workspace          # unit + integration tests (local HTTP server)
-cd frontend && npm run dev      # Vite at :5173, proxies /api to :8080
-cargo run -p aicrawl-cli -- doctor
+cargo test --workspace
+cd frontend && npm run typecheck && npm run build
 ```
 
-The dashboard is embedded at compile time. During UI work either use the Vite
-dev server or set `AICRAWL_DASHBOARD_DIR=frontend/dist` to serve a rebuild from
-disk without recompiling Rust.
+Integration tests run against a local fixture site (no external network) and
+cover CSS/XPath extraction, nested lists, required/optional misses, pagination,
+dedupe, schema validation, robots.txt, SSRF refusal, crawling, the REST
+envelope and the MCP catalogue.
 
-## Release and versioning
+## Upgrading from 0.0.1-experimental
 
-[`version.json`](version.json) is the single source of truth for the release
-version. It drives two things:
+Version 1.0.0 is a breaking release:
 
-- the release tag (`v` + the version, for example `v0.0.1-experimental.2`)
-- the version compiled into the binary, shown by `aicrawl --version`,
-  `aicrawl version` and the MCP server
-
-To publish a release:
-
-1. Update `version.json` and the matching `version` in `Cargo.toml`, then merge
-   to `main`.
-2. Wait for the automatic **CI** workflow to pass on Windows, Linux and macOS.
-3. Run **Actions → Release → Run workflow** manually. The workflow creates the
-   tag, builds all four binaries, verifies their embedded version and uploads
-   them with SHA-256 checksums.
-
-Versions containing a hyphen (`-`) are published as prereleases.
-
-## Limitations
-
-- JavaScript-heavy pages require the optional Playwright bridge.
-- `search_website` searches one fetched page; use `crawl_website` for site-wide
-  coverage.
-- Semantic extraction quality depends on the external provider you configure.
-- AICrawl respects site policy; it does not bypass authentication, paywalls or
-  CAPTCHAs.
-
-## Community
-
-- [Contributing guide](CONTRIBUTING.md)
-- [Code of Conduct](CODE_OF_CONDUCT.md)
-- [Security policy](SECURITY.md)
-- [Support](SUPPORT.md)
-- [Governance](GOVERNANCE.md)
-- [Changelog](CHANGELOG.md)
-- [Discussions](https://github.com/Ahaduzzamankhan/aicrawl/discussions)
-- [Report a bug](https://github.com/Ahaduzzamankhan/aicrawl/issues/new?template=bug_report.yml)
-- [Request a feature](https://github.com/Ahaduzzamankhan/aicrawl/issues/new?template=feature_request.yml)
-
-If AICrawl is useful to you, consider starring the repository — it helps other
-people find the project.
+- Natural-language `query` fields are gone; send structured `selectors` instead.
+- The built-in AI provider registry was removed (migration `0002` drops
+  `ai_providers`); no model or API key is used or stored.
+- `aicrawl start/stop/status` were replaced by foreground `aicrawl api` and
+  `aicrawl mcp` commands.
+- CLI extraction commands now take `--input`/`--stdin` JSON requests.
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).

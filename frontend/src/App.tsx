@@ -7,7 +7,6 @@ import { Jobs } from "@/pages/Jobs";
 import { Results } from "@/pages/Results";
 import { McpConfig } from "@/pages/McpConfig";
 import { ApiKeys } from "@/pages/ApiKeys";
-import { Providers } from "@/pages/Providers";
 import { Settings } from "@/pages/Settings";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/skeleton";
@@ -37,7 +36,6 @@ export function App() {
         <Route path="results" element={<Results />} />
         <Route path="mcp" element={<McpConfig />} />
         <Route path="api-keys" element={<ApiKeys />} />
-        <Route path="providers" element={<Providers />} />
         <Route path="settings" element={<Settings />} />
         <Route path="*" element={<NotFound />} />
       </Route>

@@ -18,10 +18,3 @@ export function StatusBadge({ status }: { status: Job["status"] }) {
   }
 }
 
-export function ModeBadge({ mode }: { mode: "ai" | "deterministic" }) {
-  return mode === "ai" ? (
-    <Badge variant="default">AI</Badge>
-  ) : (
-    <Badge variant="secondary">deterministic</Badge>
-  );
-}

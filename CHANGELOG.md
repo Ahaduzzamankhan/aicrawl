@@ -6,6 +6,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Pre-`1.0.0` experimental builds may contain breaking changes.
 
+## [1.0.0] - 2026-11-04
+
+### Added
+
+- Versioned JSON request contract (schema v1) shared by the CLI, REST API, MCP
+  tools and dashboard, documented in `docs/request-schema.md` with a JSON Schema
+  in `shared/schemas/extract-request.schema.json`.
+- Deterministic selector engine: CSS, a documented XPath subset, attribute/text/
+  sanitized-HTML rules, nested objects, repeated elements, required and optional
+  fields, defaults and per-rule transforms.
+- Structured data extraction: JSON-LD, Open Graph, metadata, headings, tables,
+  prices and absolute URL resolution, plus a `document` projection.
+- JSON Schema validation of extracted payloads with `SCHEMA_VALIDATION_FAILED`.
+- Pagination with next-link following, de-duplication by field keys and bounded
+  batch extraction with per-page results and a merged payload.
+- Incremental crawling via content hashes, sitemap discovery, crawl
+  cancellation and per-page stored results with dataset export.
+- CLI commands `extract`, `crawl`, `batch`, `map`, `validate` with
+  `--input`/`--stdin`/`--output`, JSON on stdout, diagnostics on stderr and
+  stable exit codes.
+- REST endpoints `/api/v1/{extract,crawl,batch,map,validate,export,results,mcp}`
+  using the shared success/error envelope.
+- Ten MCP tools: `extract_structured_data`, `crawl_website`, `map_website`,
+  `inspect_website`, `batch_extract`, `search_pages`, `compare_pages`,
+  `get_crawl_status`, `get_crawl_result`, `export_dataset`.
+- Dashboard request workbench: JSON editor, validation, run, response viewer,
+  copy/download, saved templates, request history and crawl progress.
+- Prompt-injection screening that flags instruction-like page text as warnings.
+
+### Changed
+
+- The engine is JSON-first: requests describe selectors and output, and the
+  response envelope (`success`, `data`, `meta`, `errors`, `error`) is
+  identical across interfaces.
+- `aicrawl api` and `aicrawl mcp` run in the foreground; the background daemon
+  (`start`/`stop`/`status`) and PID files were removed.
+- Playwright rendering timeout is configured with `crawler.render_timeout_ms`.
+
+### Removed
+
+- The AI provider stack: `/providers` API and dashboard page, encrypted provider
+  credentials, `use_ai` request fields and the `[ai]` configuration section.
+  Migration `0002` drops the `ai_providers` table.
+
+### Fixed
+
+- Crawl pages are stored under their real job id; the previous empty-id insert
+  was rejected by the foreign key.
+
 ## [Unreleased]
 
 ### Planned

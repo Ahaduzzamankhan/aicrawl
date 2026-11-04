@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["products"],
+  "properties": {
+    "products": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["title", "price"],
+        "properties": {
+          "title": { "type": "string", "minLength": 1 },
+          "price": { "type": "number", "minimum": 0 },
+          "link": { "type": "string", "format": "uri" }
+        }
+      }
+    }
+  }
+}

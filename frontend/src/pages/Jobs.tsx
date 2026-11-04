@@ -19,7 +19,7 @@ import {
 import { usePolling } from "@/hooks/usePolling";
 import { useToast } from "@/components/ui/toast";
 import { PageHeader } from "@/components/PageHeader";
-import { StatusBadge, ModeBadge } from "@/components/StatusBadge";
+import { StatusBadge } from "@/components/StatusBadge";
 import { JsonViewer } from "@/components/JsonViewer";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -343,7 +343,7 @@ function ResultBlock({ result }: { result: ExtractedResult }) {
     <details className="rounded-lg border border-border bg-muted/20 p-3">
       <summary className="cursor-pointer list-none">
         <div className="flex flex-wrap items-center gap-2">
-          <ModeBadge mode={result.mode} />
+          <Badge variant="outline">{result.mode}</Badge>
           <span className="font-mono text-[11px]">{result.url}</span>
           {result.validated ? <Badge variant="success">schema</Badge> : null}
           <span className="ml-auto text-[10px] text-muted-foreground">
@@ -428,21 +428,31 @@ function NewCrawlDialog({
   const [url, setUrl] = useState("https://example.com");
   const [maxPages, setMaxPages] = useState(10);
   const [maxDepth, setMaxDepth] = useState(2);
-  const [query, setQuery] = useState("");
   const [sameDomain, setSameDomain] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
     setBusy(true);
     try {
-      const response = await api.startCrawl({
+      const response = await api.crawl({
+        version: "1",
         url: url.trim(),
-        max_pages: maxPages,
-        max_depth: maxDepth,
-        query: query.trim() || undefined,
-        same_domain: sameDomain,
+        action: "crawl",
+        crawl: {
+          max_pages: maxPages,
+          max_depth: maxDepth,
+          same_domain: sameDomain,
+          sitemap: true,
+        },
       });
-      toast.success("Crawl queued", response.job.id);
+      if (!response.success) {
+        toast.error(
+          response.error?.code ?? "crawl failed",
+          response.error?.message ?? "The crawl was rejected",
+        );
+        return;
+      }
+      toast.success("Crawl complete", response.meta?.job_id ?? undefined);
       onOpenChange(false);
       onCreated();
     } catch (error) {
@@ -500,15 +510,6 @@ function NewCrawlDialog({
               }
             />
           </div>
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="crawl-query">Extract from every page (optional)</Label>
-          <Input
-            id="crawl-query"
-            placeholder="Extract page titles and summaries"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
         </div>
         <div className="flex items-center justify-between rounded-md border border-border px-3 py-2">
           <div>

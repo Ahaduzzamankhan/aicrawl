@@ -1,0 +1,18 @@
+{
+  "version": "1",
+  "url": "https://example.com/",
+  "action": "crawl",
+  "render": "auto",
+  "crawl": {
+    "max_pages": 20,
+    "max_depth": 2,
+    "same_domain": true,
+    "sitemap": true,
+    "incremental": true
+  },
+  "selectors": {
+    "title": { "selector": "h1" },
+    "description": { "type": "meta", "name": "description" },
+    "links": { "type": "list", "selector": "a", "fields": { "url": { "type": "url" } } }
+  }
+}

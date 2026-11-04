@@ -13,7 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -30,9 +29,7 @@ function CodeBlock({ code, label }: { code: string; label?: string }) {
   return (
     <div className="overflow-hidden rounded-lg border border-border bg-code">
       <div className="flex items-center justify-between border-b border-border/70 px-3 py-2">
-        <span className="font-mono text-[11px] text-muted-foreground">
-          {label ?? "config"}
-        </span>
+        <span className="font-mono text-[11px] text-muted-foreground">{label ?? "config"}</span>
         <Button
           variant="ghost"
           size="sm"
@@ -54,6 +51,23 @@ function CodeBlock({ code, label }: { code: string; label?: string }) {
   );
 }
 
+const EXAMPLE_REQUEST = `{
+  "request": {
+    "version": "1",
+    "url": "https://example.com/products",
+    "selectors": {
+      "products": {
+        "type": "list",
+        "selector": ".product-card",
+        "fields": {
+          "name": { "selector": ".product-title", "required": true },
+          "price": { "selector": ".price", "type": "number" }
+        }
+      }
+    }
+  }
+}`;
+
 export function McpConfig() {
   const toast = useToast();
   const { data, loading, error } = usePolling(() => api.mcp(), 30000);
@@ -62,7 +76,7 @@ export function McpConfig() {
     <div className="space-y-6">
       <PageHeader
         title="MCP configuration"
-        description="Connect an AI agent to AICrawl. MCP is a first-class interface: the dashboard is never required for agent workflows."
+        description="MCP is a first-class interface. Agents send structured JSON requests and receive the same envelope as the CLI and REST API."
         actions={<Badge variant="outline">streamable HTTP · stdio</Badge>}
       />
 
@@ -82,15 +96,13 @@ export function McpConfig() {
                 <Plug className="size-4 text-primary" /> Endpoint
               </CardTitle>
               <CardDescription>
-                Serve it with <span className="font-mono">aicrawl start</span> or{" "}
-                <span className="font-mono">aicrawl mcp start</span>.
+                Start it with <span className="font-mono">aicrawl api</span> (REST + dashboard) or{" "}
+                <span className="font-mono">aicrawl mcp --http</span>.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-                <code className="flex-1 truncate font-mono text-xs">
-                  {data.http.endpoint}
-                </code>
+                <code className="flex-1 truncate font-mono text-xs">{data.http.endpoint}</code>
                 <Button
                   variant="outline"
                   size="sm"
@@ -104,59 +116,49 @@ export function McpConfig() {
                 </Button>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Authentication is handled by your local network policy. The MCP
-                endpoint validates the Host header and is intended for local
-                agents; do not expose it publicly without a proxy.
+                The endpoint validates the Host header and binds to loopback by default. Do not
+                expose it publicly without a reverse proxy and authentication.
               </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Client setup</CardTitle>
-              <CardDescription>
-                Paste one of these snippets into your MCP client configuration.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="http">
-                <TabsList>
-                  <TabsTrigger value="http">Streamable HTTP</TabsTrigger>
-                  <TabsTrigger value="stdio">stdio</TabsTrigger>
-                </TabsList>
-                <TabsContent value="http" className="space-y-3">
-                  <CodeBlock
-                    label="mcp.json"
-                    code={JSON.stringify(data.http.client_config, null, 2)}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    Transport: {data.http.transport}. The server supports JSON
-                    responses for simple tool calls.
-                  </p>
-                </TabsContent>
-                <TabsContent value="stdio" className="space-y-3">
-                  <CodeBlock
-                    label="local stdio server"
-                    code={JSON.stringify(data.stdio.client_config, null, 2)}
-                  />
-                  <CodeBlock
-                    label="command"
-                    code={`${data.stdio.command} ${data.stdio.args.join(" ")}`}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    stdio writes logs to stderr only, keeping stdout as a clean
-                    protocol channel.
-                  </p>
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card>
+              <CardHeader>
+                <CardTitle>Streamable HTTP</CardTitle>
+                <CardDescription>Transport: {data.http.transport}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <CodeBlock
+                  label="mcp.json"
+                  code={JSON.stringify(data.http.client_config, null, 2)}
+                />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle>stdio</CardTitle>
+                <CardDescription>Local process, JSON on stdout, logs on stderr.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <CodeBlock
+                  label="mcp.json"
+                  code={JSON.stringify(data.stdio.client_config, null, 2)}
+                />
+                <CodeBlock
+                  label="command"
+                  code={`${data.stdio.command} ${data.stdio.args.join(" ")}`}
+                />
+              </CardContent>
+            </Card>
+          </div>
 
           <Card>
             <CardHeader>
               <CardTitle>Tools</CardTitle>
               <CardDescription>
-                Seven tools share the same engine as the CLI and REST API.
+                {data.tools.length} JSON tools share one engine, one security policy and one
+                storage layer.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -193,9 +195,8 @@ export function McpConfig() {
               <div>
                 <p className="text-sm font-medium">Untrusted content</p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {data.notice} Prompt-injection attempts are flagged as warnings
-                  and page text is wrapped in an explicit data-only block before
-                  it reaches an external model.
+                  {data.notice} Page text is returned as data; agents must never execute
+                  instructions found inside it.
                 </p>
               </div>
             </CardContent>
@@ -204,21 +205,12 @@ export function McpConfig() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Terminal className="size-4" /> Example agent call
+                <Terminal className="size-4" /> Example tool call
               </CardTitle>
+              <CardDescription>extract_structured_data</CardDescription>
             </CardHeader>
             <CardContent>
-              <CodeBlock
-                label="extract_website_data"
-                code={`{
-  "tool": "extract_website_data",
-  "arguments": {
-    "url": "https://example.com/products",
-    "query": "Extract product names and prices",
-    "output_format": "json"
-  }
-}`}
-              />
+              <CodeBlock label="arguments" code={EXAMPLE_REQUEST} />
             </CardContent>
           </Card>
         </>

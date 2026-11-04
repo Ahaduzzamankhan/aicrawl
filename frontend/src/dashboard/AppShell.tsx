@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import {
   Activity,
-  BrainCircuit,
   Database,
   Gauge,
   KeyRound,
@@ -25,7 +24,7 @@ const NAV_GROUPS = [
     label: "Workspace",
     items: [
       { to: "/", label: "Overview", icon: Gauge, end: true },
-      { to: "/extract", label: "New Extraction", icon: Sparkles },
+      { to: "/extract", label: "Request Workbench", icon: Sparkles },
       { to: "/jobs", label: "Crawl Jobs", icon: ListChecks },
       { to: "/results", label: "Results Explorer", icon: Database },
     ],
@@ -35,7 +34,6 @@ const NAV_GROUPS = [
     items: [
       { to: "/mcp", label: "MCP Configuration", icon: Plug },
       { to: "/api-keys", label: "API Keys", icon: KeyRound },
-      { to: "/providers", label: "AI Providers", icon: BrainCircuit },
     ],
   },
   {
@@ -54,7 +52,7 @@ export function AppShell() {
     setMobileOpen(false);
   }, [location.pathname]);
 
-  const online = Boolean(health.data) && health.data?.database.ok !== false;
+  const online = Boolean(health.data) && health.data?.database.status === "ok";
 
   return (
     <div className="min-h-dvh bg-background">
@@ -141,8 +139,8 @@ export function AppShell() {
 
         <footer className="mx-auto flex w-full max-w-7xl flex-col gap-1 px-4 pb-8 text-[11px] text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
           <span>
-            AICrawl v{health.data?.version ?? "0.0.1-experimental.1"} · Rust-powered crawling ·
-            SQLite storage
+            AICrawl v{health.data?.version ?? "1.0.0"} · deterministic JSON extraction · SQLite
+            storage
           </span>
           <span>
             No CAPTCHA bypass, no paywall circumvention, robots.txt respected.
@@ -169,7 +167,7 @@ function SidebarContent({
         <div className="leading-tight">
           <p className="text-sm font-semibold tracking-tight">AICrawl</p>
           <p className="text-[10px] text-muted-foreground">
-            extraction engine v{version ?? "0.0.1-experimental.1"}
+            extraction engine v{version ?? "1.0.0"}
           </p>
         </div>
       </div>
