@@ -1,13 +1,33 @@
+<div align="center">
+
 # AICrawl
+
+**One executable that lets AI agents and humans crawl permitted websites and extract structured data.**
+
+[![CI](https://img.shields.io/github/actions/workflow/status/Ahaduzzamankhan/aicrawl/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/Ahaduzzamankhan/aicrawl/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Ahaduzzamankhan/aicrawl?include_prereleases&style=for-the-badge&logo=github&logoColor=white&label=release&color=7C3AED)](https://github.com/Ahaduzzamankhan/aicrawl/releases)
+[![Download](https://img.shields.io/badge/download-Windows%20x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Ahaduzzamankhan/aicrawl/releases/tag/v0.0.1-experimental.1)
+[![License](https://img.shields.io/badge/license-MIT-22C55E?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
+[![Rust](https://img.shields.io/badge/rust-1.88%2B-CE422B?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![MCP](https://img.shields.io/badge/MCP-ready-0EA5E9?style=for-the-badge)](https://modelcontextprotocol.io)
+[![PRs](https://img.shields.io/badge/PRs-welcome-EC4899?style=for-the-badge&logo=git&logoColor=white)](CONTRIBUTING.md)
+[![Stars](https://img.shields.io/github/stars/Ahaduzzamankhan/aicrawl?style=for-the-badge&logo=github&color=F59E0B)](https://github.com/Ahaduzzamankhan/aicrawl/stargazers)
+
+[Quick start](#quick-start) · [MCP server](#ai-agents-mcp) · [REST API](#rest-api) · [Dashboard](#dashboard) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+
+</div>
 
 A single executable that lets **AI agents** and **humans** crawl permitted
 websites and extract structured data.
 
-> **Experimental release:** `0.0.1-experimental(01)`. Interfaces and storage may
+> **Experimental release:** `0.0.1-experimental.1`. Interfaces and storage may
 > change between experimental builds; do not rely on it for unattended
 > production crawling yet.
 
-Prebuilt Windows x64 binary: [v0.0.1-experimental(01)](https://github.com/Ahaduzzamankhan/aicrawl/releases/tag/v0.0.1-experimental.01).
+**Prebuilt Windows x64 binary:**
+[aicrawl-windows-x64.exe](https://github.com/Ahaduzzamankhan/aicrawl/releases/tag/v0.0.1-experimental.1) ·
+[checksum](https://github.com/Ahaduzzamankhan/aicrawl/releases/tag/v0.0.1-experimental.1) ·
+[all releases](https://github.com/Ahaduzzamankhan/aicrawl/releases)
 
 One `aicrawl` binary contains:
 
@@ -242,6 +262,21 @@ disk without recompiling Rust.
 - Semantic extraction quality depends on the external provider you configure.
 - AICrawl respects site policy; it does not bypass authentication, paywalls or
   CAPTCHAs.
+
+## Community
+
+- [Contributing guide](CONTRIBUTING.md)
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Security policy](SECURITY.md)
+- [Support](SUPPORT.md)
+- [Governance](GOVERNANCE.md)
+- [Changelog](CHANGELOG.md)
+- [Discussions](https://github.com/Ahaduzzamankhan/aicrawl/discussions)
+- [Report a bug](https://github.com/Ahaduzzamankhan/aicrawl/issues/new?template=bug_report.yml)
+- [Request a feature](https://github.com/Ahaduzzamankhan/aicrawl/issues/new?template=feature_request.yml)
+
+If AICrawl is useful to you, consider starring the repository — it helps other
+people find the project.
 
 ## License
 

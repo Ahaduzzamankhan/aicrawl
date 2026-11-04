@@ -1,0 +1,79 @@
+name: Feature request
+description: Suggest a capability or improvement for AICrawl.
+title: "[Feature]: "
+labels: ["enhancement", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Please describe the problem first, then the proposed
+        solution. Requests for CAPTCHA solving, paywall bypass, authentication
+        circumvention or stealth crawling are out of scope.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I searched existing issues and discussions for this idea.
+          required: true
+        - label: This request is compatible with robots.txt and site policy.
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What are you trying to accomplish, and what gets in the way today?
+      placeholder: I want my agent to ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior, interface or flag you would like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing commands, workarounds or other designs you evaluated.
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Primary surface
+      options:
+        - CLI
+        - Dashboard
+        - REST API
+        - MCP server
+        - Extraction engine
+        - Storage
+        - Documentation
+        - Developer experience / CI
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Expected scope
+      options:
+        - Small (focused change)
+        - Medium (new option or endpoint)
+        - Large (new surface or breaking change)
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Examples, mockups, comparable tools, or links to relevant documentation.

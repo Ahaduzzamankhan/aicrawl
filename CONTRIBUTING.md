@@ -1,10 +1,14 @@
 # Contributing to AICrawl
 
 Thanks for helping improve AICrawl. This project is an **experimental** release
-(`0.0.1-experimental(01)`), so APIs, CLI flags and the database schema may change
+(`0.0.1-experimental.1`), so APIs, CLI flags and the database schema may change
 before a stable release.
 
 By participating you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
+Useful links: [README](README.md) · [Support](SUPPORT.md) ·
+[Governance](GOVERNANCE.md) · [Security](SECURITY.md) ·
+[Changelog](CHANGELOG.md).
 
 ## Ways to contribute
 
@@ -76,6 +80,23 @@ Do not commit a machine-specific toolchain path or a vendored compiler.
 Keep changes focused. Explain the “why” in the PR description, not just the
 “what”. Screenshots help for dashboard changes.
 
+## Continuous integration
+
+Every push to `main` and every pull request runs the [CI workflow](.github/workflows/ci.yml):
+
+1. `npm ci`, `npm run typecheck` and `npm run build` in `frontend`.
+2. `cargo fmt --all -- --check`.
+3. `cargo clippy --workspace --all-targets`.
+4. `cargo test --workspace`.
+5. A release-profile build and `aicrawl version` smoke test.
+
+Pushing a `v*` tag runs the [release workflow](.github/workflows/release.yml),
+which rebuilds the Windows x64 binary, writes a SHA-256 checksum and publishes
+the GitHub release. Do not attach binaries manually; let the workflow do it.
+
+Maintainers may ask for a green CI run before merging. If a check fails, run the
+same command locally and include the result in the PR.
+
 ## Code layout
 
 | Path | Purpose |
@@ -102,10 +123,10 @@ reimplementing fetch or extraction logic.
 
 ## Security issues
 
-Do not open a public issue for a vulnerability. Use GitHub’s **Report a
-vulnerability** flow under the repository’s Security tab, or contact the
-maintainer through their GitHub profile. Please include reproduction steps and
-affected versions.
+Do not open a public issue for a vulnerability. Follow [SECURITY.md](SECURITY.md)
+and use GitHub’s **Report a vulnerability** flow under the repository’s Security
+tab. Please include reproduction steps, affected versions and a minimal proof of
+concept. Do not include secrets or private crawled data.
 
 ## License
 

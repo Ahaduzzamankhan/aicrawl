@@ -1,0 +1,114 @@
+name: Bug report
+description: Report a reproducible problem with AICrawl.
+title: "[Bug]: "
+labels: ["bug", "needs triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve AICrawl. Please search existing issues first.
+
+        **Do not include API keys, secrets, private crawled content or personal data.**
+        Security vulnerabilities must be reported privately — see the
+        [security policy](https://github.com/Ahaduzzamankhan/aicrawl/blob/main/SECURITY.md).
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checklist
+      options:
+        - label: I searched existing issues and discussions.
+          required: true
+        - label: I am using the latest published experimental release or current `main`.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true
+        - label: I removed secrets and private data from this report.
+          required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: AICrawl version
+      description: Output of `aicrawl version` or the release tag.
+      placeholder: 0.0.1-experimental.1
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - CLI
+        - Dashboard
+        - REST API
+        - MCP server (stdio)
+        - MCP server (HTTP)
+        - Build or installation
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11 x64
+        - Windows 10 x64
+        - Linux x64
+        - macOS (Intel)
+        - macOS (Apple Silicon)
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Exact commands, URLs (public or redacted) and configuration needed to reproduce.
+      placeholder: |
+        1. Run `aicrawl start`
+        2. Run `aicrawl extract https://example.com --query "..."`
+        3. See error
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the full error message and exit code.
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Relevant output from the console, `aicrawl.log` or the dashboard. Redact secrets and private content.
+      render: shell
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Relevant configuration
+      description: Redact API keys and sensitive values.
+      render: toml
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Screenshots, provider configuration, Playwright bridge details, or anything else that helps.

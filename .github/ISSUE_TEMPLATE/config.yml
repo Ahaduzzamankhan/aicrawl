@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Usage questions and ideas
+    url: https://github.com/Ahaduzzamankhan/aicrawl/discussions
+    about: Ask for help, share workflows, or discuss a design before opening an issue.
+  - name: Documentation
+    url: https://github.com/Ahaduzzamankhan/aicrawl#readme
+    about: Installation, CLI, dashboard, REST API, MCP and configuration.
+  - name: Report a security vulnerability
+    url: https://github.com/Ahaduzzamankhan/aicrawl/security/advisories/new
+    about: Report vulnerabilities privately. Do not open a public issue.
+  - name: Contributing guide
+    url: https://github.com/Ahaduzzamankhan/aicrawl/blob/main/CONTRIBUTING.md
+    about: Development setup, checks and pull request expectations.

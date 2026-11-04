@@ -1,8 +1,9 @@
 # Rust
 /target
-/target-gnu
+/target-*
 **/*.rs.bk
-.aicrawl-check*.log
+.aicrawl-*.log
+*.pdb
 
 # Locally provisioned toolchain (not part of the project)
 /.tools/

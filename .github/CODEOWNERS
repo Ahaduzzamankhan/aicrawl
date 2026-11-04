@@ -1,0 +1,10 @@
+# Default owners for everything in this repository.
+* @Ahaduzzamankhan
+
+# Repository automation and community health files.
+/.github/ @Ahaduzzamankhan
+
+# Security-sensitive code.
+/crates/aicrawl-core/src/security/ @Ahaduzzamankhan
+/crates/aicrawl-core/src/fetcher/ @Ahaduzzamankhan
+/crates/aicrawl-core/src/storage/ @Ahaduzzamankhan

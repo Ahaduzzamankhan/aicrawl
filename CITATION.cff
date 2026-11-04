@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use AICrawl in research or a product, please cite this project."
+title: AICrawl
+abstract: >-
+  A single executable that lets AI agents and humans crawl permitted websites
+  and extract structured data through a CLI, embedded dashboard, REST API and
+  MCP server.
+authors:
+  - name: AICrawl Contributors
+version: 0.0.1-experimental.1
+date-released: 2026-11-04
+url: https://github.com/Ahaduzzamankhan/aicrawl
+repository-code: https://github.com/Ahaduzzamankhan/aicrawl
+license: MIT
+keywords:
+  - web crawler
+  - web scraping
+  - structured data extraction
+  - model context protocol
+  - MCP
+  - AI agents
+  - Rust
+  - SQLite
