@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="public/icon.png" alt="AICrawl logo" width="150">
+
 # AICrawl
 
 **一个可执行文件，让 AI 智能体和人类能够抓取获准的网站并提取结构化数据。**
@@ -33,6 +35,10 @@
 | 仪表盘 | 人类 | 由 `aicrawl start` 在 `http://127.0.0.1:8080` 提供的 React UI |
 | REST API | 脚本和集成 | `http://127.0.0.1:8080/api/v1` |
 | MCP 服务器 | AI 智能体 | `aicrawl mcp stdio` 或 `http://127.0.0.1:8787/mcp` |
+
+<p align="center">
+  <img src="public/flowchart.png" alt="AICrawl architecture flowchart: CLI, MCP, REST API and dashboard feed one Rust engine that fetches websites, extracts structured data, applies security rules and stores results in SQLite" width="100%">
+</p>
 
 仪表盘**嵌入在可执行文件中**；没有单独的 Web 服务器，也没有需要分发的资源文件夹。四个界面都调用同一个 `AicrawlEngine`，因此 SSRF 防护、robots.txt 处理、缓存和存储的行为完全一致。
 

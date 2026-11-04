@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="public/icon.png" alt="AICrawl logo" width="150">
+
 # AICrawl
 
 **AI エージェントと人間が、許可されたウェブサイトをクロールして構造化データを抽出できる単一の実行ファイル。**
@@ -33,6 +35,10 @@
 | ダッシュボード | 人間 | `aicrawl start` が `http://127.0.0.1:8080` で提供する React UI |
 | REST API | スクリプトと連携 | `http://127.0.0.1:8080/api/v1` |
 | MCP サーバー | AI エージェント | `aicrawl mcp stdio` または `http://127.0.0.1:8787/mcp` |
+
+<p align="center">
+  <img src="public/flowchart.png" alt="AICrawl architecture flowchart: CLI, MCP, REST API and dashboard feed one Rust engine that fetches websites, extracts structured data, applies security rules and stores results in SQLite" width="100%">
+</p>
 
 ダッシュボードは**実行ファイルに埋め込まれています**。別のウェブサーバーや配布するアセットフォルダーはありません。4 つのサーフェスはすべて同じ `AicrawlEngine` を呼び出すため、SSRF 保護、robots.txt の処理、キャッシュ、ストレージの動作は同一です。
 

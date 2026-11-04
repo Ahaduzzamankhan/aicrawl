@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="public/icon.png" alt="AICrawl logo" width="150">
+
 # AICrawl
 
 **Un único ejecutable que permite a agentes de IA y personas rastrear sitios web permitidos y extraer datos estructurados.**
@@ -33,6 +35,10 @@ Un único binario `aicrawl` contiene:
 | Panel | personas | interfaz React servida por `aicrawl start` en `http://127.0.0.1:8080` |
 | API REST | scripts e integraciones | `http://127.0.0.1:8080/api/v1` |
 | Servidor MCP | agentes de IA | `aicrawl mcp stdio` o `http://127.0.0.1:8787/mcp` |
+
+<p align="center">
+  <img src="public/flowchart.png" alt="AICrawl architecture flowchart: CLI, MCP, REST API and dashboard feed one Rust engine that fetches websites, extracts structured data, applies security rules and stores results in SQLite" width="100%">
+</p>
 
 El panel está **integrado en el ejecutable**; no hay un servidor web separado ni una carpeta de recursos que distribuir. Las cuatro superficies llaman al mismo `AicrawlEngine`, por lo que la protección SSRF, el manejo de robots.txt, la caché y el almacenamiento se comportan igual.
 

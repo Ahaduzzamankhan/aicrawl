@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="public/icon.png" alt="AICrawl logo" width="150">
+
 # AICrawl
 
 **একটি এক্সিকিউটেবল যা AI এজেন্ট এবং মানুষকে অনুমোদিত ওয়েবসাইট ক্রল করে কাঠামোবদ্ধ ডেটা বের করতে দেয়।**
@@ -33,6 +35,10 @@
 | ড্যাশবোর্ড | মানুষ | `aicrawl start`-এ `http://127.0.0.1:8080`-এ পরিবেশিত React UI |
 | REST API | স্ক্রিপ্ট ও ইন্টিগ্রেশন | `http://127.0.0.1:8080/api/v1` |
 | MCP সার্ভার | AI এজেন্ট | `aicrawl mcp stdio` বা `http://127.0.0.1:8787/mcp` |
+
+<p align="center">
+  <img src="public/flowchart.png" alt="AICrawl architecture flowchart: CLI, MCP, REST API and dashboard feed one Rust engine that fetches websites, extracts structured data, applies security rules and stores results in SQLite" width="100%">
+</p>
 
 ড্যাশবোর্ড **এক্সিকিউটেবলের ভিতরে এমবেড করা**; আলাদা ওয়েব সার্ভার বা পাঠানোর জন্য কোনো অ্যাসেট ফোল্ডার নেই। চারটি পৃষ্ঠতলই একই `AicrawlEngine` ব্যবহার করে, তাই SSRF সুরক্ষা, robots.txt হ্যান্ডলিং, ক্যাশিং ও স্টোরেজ একইভাবে কাজ করে।
 

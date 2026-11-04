@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="public/icon.png" alt="AICrawl logo" width="150">
+
 # AICrawl
 
 **Eén uitvoerbaar bestand waarmee AI-agenten en mensen toegestane websites kunnen crawlen en gestructureerde data kunnen extraheren.**
@@ -33,6 +35,10 @@ Eén `aicrawl`-binary bevat:
 | Dashboard | mensen | React-UI geserveerd door `aicrawl start` op `http://127.0.0.1:8080` |
 | REST API | scripts en integraties | `http://127.0.0.1:8080/api/v1` |
 | MCP-server | AI-agenten | `aicrawl mcp stdio` of `http://127.0.0.1:8787/mcp` |
+
+<p align="center">
+  <img src="public/flowchart.png" alt="AICrawl architecture flowchart: CLI, MCP, REST API and dashboard feed one Rust engine that fetches websites, extracts structured data, applies security rules and stores results in SQLite" width="100%">
+</p>
 
 Het dashboard is **in het uitvoerbare bestand ingebouwd**; er is geen aparte webserver en geen assetmap om te versturen. Alle vier oppervlakken gebruiken dezelfde `AicrawlEngine`, dus SSRF-bescherming, robots.txt-afhandeling, caching en opslag gedragen zich identiek.
 

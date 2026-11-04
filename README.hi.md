@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="public/icon.png" alt="AICrawl logo" width="150">
+
 # AICrawl
 
 **एक ऐसा executable जो AI एजेंट और इंसानों को अनुमत वेबसाइटों को crawl करके संरचित डेटा निकालने देता है।**
@@ -33,6 +35,10 @@
 | डैशबोर्ड | इंसान | `aicrawl start` द्वारा `http://127.0.0.1:8080` पर परोसा गया React UI |
 | REST API | स्क्रिप्ट और इंटीग्रेशन | `http://127.0.0.1:8080/api/v1` |
 | MCP सर्वर | AI एजेंट | `aicrawl mcp stdio` या `http://127.0.0.1:8787/mcp` |
+
+<p align="center">
+  <img src="public/flowchart.png" alt="AICrawl architecture flowchart: CLI, MCP, REST API and dashboard feed one Rust engine that fetches websites, extracts structured data, applies security rules and stores results in SQLite" width="100%">
+</p>
 
 डैशबोर्ड **executable के अंदर embedded** है; कोई अलग वेब सर्वर या भेजने के लिए asset फ़ोल्डर नहीं है। चारों सतहें एक ही `AicrawlEngine` को कॉल करती हैं, इसलिए SSRF सुरक्षा, robots.txt हैंडलिंग, caching और storage एक जैसा व्यवहार करते हैं।
 

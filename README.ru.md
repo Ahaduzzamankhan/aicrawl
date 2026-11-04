@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="public/icon.png" alt="AICrawl logo" width="150">
+
 # AICrawl
 
 **Один исполняемый файл, позволяющий AI-агентам и людям обходить разрешённые сайты и извлекать структурированные данные.**
@@ -33,6 +35,10 @@
 | Панель управления | люди | React UI, обслуживаемый `aicrawl start` на `http://127.0.0.1:8080` |
 | REST API | скрипты и интеграции | `http://127.0.0.1:8080/api/v1` |
 | MCP-сервер | AI-агенты | `aicrawl mcp stdio` или `http://127.0.0.1:8787/mcp` |
+
+<p align="center">
+  <img src="public/flowchart.png" alt="AICrawl architecture flowchart: CLI, MCP, REST API and dashboard feed one Rust engine that fetches websites, extracts structured data, applies security rules and stores results in SQLite" width="100%">
+</p>
 
 Панель управления **встроена в исполняемый файл**; отдельного веб-сервера и папки ресурсов для распространения нет. Все четыре интерфейса вызывают один и тот же `AicrawlEngine`, поэтому защита от SSRF, обработка robots.txt, кэширование и хранилище работают одинаково.
 

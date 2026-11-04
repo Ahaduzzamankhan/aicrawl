@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="public/icon.png" alt="AICrawl logo" width="150">
+
 # AICrawl
 
 **One executable that lets AI agents and humans crawl permitted websites and extract structured data.**
@@ -38,6 +40,10 @@ One `aicrawl` binary contains:
 | Dashboard | humans | React UI served by `aicrawl start` at `http://127.0.0.1:8080` |
 | REST API | scripts & integrations | `http://127.0.0.1:8080/api/v1` |
 | MCP server | AI agents | `aicrawl mcp stdio` or `http://127.0.0.1:8787/mcp` |
+
+<p align="center">
+  <img src="public/flowchart.png" alt="AICrawl architecture flowchart: CLI, MCP, REST API and dashboard feed one Rust engine that fetches websites, extracts structured data, applies security rules and stores results in SQLite" width="100%">
+</p>
 
 The dashboard is **embedded in the executable**; there is no separate web server
 and no asset folder to ship. All four surfaces call the same `AicrawlEngine`, so
