@@ -1,38 +1,115 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
-    inputs:
-      tag:
-        description: Existing tag to publish, for example v0.0.1-experimental.1
-        required: true
-        type: string
 
 permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.event.inputs.tag || github.ref_name }}
+  group: release
   cancel-in-progress: false
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  windows-x64:
-    name: Publish Windows x64 binary
-    runs-on: windows-latest
-    timeout-minutes: 60
+  prepare:
+    name: Prepare release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
           fetch-depth: 0
+
+      - name: Read and validate version
+        id: version
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(python3 -c 'import json; print(json.load(open("version.json"))["version"])')"
+          cargo_version="$(python3 - <<'PY'
+          import tomllib
+          with open("Cargo.toml", "rb") as handle:
+              print(tomllib.load(handle)["workspace"]["package"]["version"])
+          PY
+          )"
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::version.json contains an invalid version: $version"
+            exit 1
+          fi
+          if [[ "$version" != "$cargo_version" ]]; then
+            echo "::error::version.json ($version) does not match Cargo.toml ($cargo_version)"
+            exit 1
+          fi
+
+          tag="v$version"
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${tag}" > /tmp/tag.json 2>/dev/null; then
+            existing="$(python3 -c 'import json; print(json.load(open("/tmp/tag.json"))["object"]["sha"])')"
+            if [[ "$existing" != "$GITHUB_SHA" ]]; then
+              echo "::error::Tag $tag already points to $existing; bump version.json before releasing."
+              exit 1
+            fi
+            echo "Tag $tag already exists at $GITHUB_SHA and will be reused."
+          else
+            echo "Tag $tag will be created at $GITHUB_SHA."
+          fi
+
+          if [[ "$version" == *-* ]]; then
+            prerelease=true
+          else
+            prerelease=false
+          fi
+
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+            echo "prerelease=$prerelease"
+          } >> "$GITHUB_OUTPUT"
+
+          {
+            echo "### Release $tag"
+            echo ""
+            echo "- Version: \`$version\`"
+            echo "- Commit: \`$GITHUB_SHA\`"
+            echo "- Prerelease: \`$prerelease\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  build:
+    name: Build ${{ matrix.asset }}
+    needs: prepare
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            asset: aicrawl-windows-x64.exe
+            platform: Windows x64
+          - os: ubuntu-latest
+            asset: aicrawl-linux-x64
+            platform: Linux x64
+          - os: macos-15-intel
+            asset: aicrawl-macos-x64
+            platform: macOS Intel
+          - os: macos-15
+            asset: aicrawl-macos-arm64
+            platform: macOS Apple Silicon
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
       - name: Set up Node.js
         uses: actions/setup-node@v7
@@ -56,47 +133,148 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: ". -> target"
+          shared-key: release-${{ matrix.asset }}
 
       - name: Build release binary
+        env:
+          AICRAWL_RELEASE_VERSION: ${{ needs.prepare.outputs.version }}
         run: cargo build --release --locked -p aicrawl-cli
 
-      - name: Stage release artifact
+      - name: Stage artifact (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
+        env:
+          ASSET: ${{ matrix.asset }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          cp target/release/aicrawl "dist/$ASSET"
+          chmod +x "dist/$ASSET"
+
+          actual="$("./dist/$ASSET" --version | awk '{print $2}')"
+          if [[ "$actual" != "$VERSION" ]]; then
+            echo "::error::binary reports $actual, expected $VERSION"
+            exit 1
+          fi
+
+          if command -v sha256sum >/dev/null 2>&1; then
+            (cd dist && sha256sum "$ASSET" > "$ASSET.sha256")
+          else
+            (cd dist && shasum -a 256 "$ASSET" > "$ASSET.sha256")
+          fi
+
+      - name: Stage artifact (Windows)
+        if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          ASSET: ${{ matrix.asset }}
+          VERSION: ${{ needs.prepare.outputs.version }}
         run: |
           New-Item -ItemType Directory -Force -Path dist | Out-Null
-          Copy-Item target/release/aicrawl.exe dist/aicrawl-windows-x64.exe
-          $hash = (Get-FileHash dist/aicrawl-windows-x64.exe -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$hash  aicrawl-windows-x64.exe" | Set-Content -Encoding ascii dist/aicrawl-windows-x64.exe.sha256
-          .\dist\aicrawl-windows-x64.exe version
+          Copy-Item target/release/aicrawl.exe "dist/$env:ASSET"
 
-      - name: Upload workflow artifact
+          $actual = (& ".\dist\$env:ASSET" --version).Trim().Split(' ')[-1]
+          if ($actual -ne $env:VERSION) {
+            throw "binary reports $actual, expected $env:VERSION"
+          }
+
+          $hash = (Get-FileHash ".\dist\$env:ASSET" -Algorithm SHA256).Hash.ToLowerInvariant()
+          $line = "$hash  $env:ASSET`n"
+          [System.IO.File]::WriteAllText("$PWD/dist/$env:ASSET.sha256", $line, [System.Text.Encoding]::ASCII)
+
+      - name: Upload release artifact
         uses: actions/upload-artifact@v7
         with:
-          name: aicrawl-windows-x64
+          name: release-${{ matrix.asset }}
           path: dist/*
           if-no-files-found: error
+          retention-days: 7
 
-      - name: Create or update GitHub release
+      - name: Summary
+        shell: bash
+        run: |
+          echo "Built **${{ matrix.platform }}**: \`${{ matrix.asset }}\` (version ${{ needs.prepare.outputs.version }})." >> "$GITHUB_STEP_SUMMARY"
+
+  publish:
+    name: Publish GitHub release
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Download release artifacts
+        uses: actions/download-artifact@v7
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+
+      - name: Create tag
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if gh api "repos/${GITHUB_REPOSITORY}/git/ref/tags/${TAG}" > /tmp/tag.json 2>/dev/null; then
+            existing="$(python3 -c 'import json; print(json.load(open("/tmp/tag.json"))["object"]["sha"])')"
+            if [[ "$existing" != "$SHA" ]]; then
+              echo "::error::Tag $TAG already points to $existing, not $SHA."
+              exit 1
+            fi
+            echo "Tag $TAG already exists at $SHA."
+          else
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+              -f "ref=refs/tags/$TAG" \
+              -f "sha=$SHA"
+          fi
+
+      - name: Verify artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+          expected="aicrawl-windows-x64.exe aicrawl-linux-x64 aicrawl-macos-x64 aicrawl-macos-arm64"
+          for asset in $expected; do
+            if [[ ! -f "dist/$asset" || ! -f "dist/$asset.sha256" ]]; then
+              echo "::error::Missing artifact or checksum for $asset"
+              exit 1
+            fi
+          done
+          ls -lh dist
+
+      - name: Publish release
         uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-          name: AICrawl ${{ github.event.inputs.tag || github.ref_name }}
-          prerelease: ${{ contains(github.event.inputs.tag || github.ref_name, '-') }}
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: AICrawl ${{ needs.prepare.outputs.tag }}
+          prerelease: ${{ needs.prepare.outputs.prerelease }}
           generate_release_notes: true
           fail_on_unmatched_files: true
           overwrite_files: true
           files: |
             dist/aicrawl-windows-x64.exe
             dist/aicrawl-windows-x64.exe.sha256
+            dist/aicrawl-linux-x64
+            dist/aicrawl-linux-x64.sha256
+            dist/aicrawl-macos-x64
+            dist/aicrawl-macos-x64.sha256
+            dist/aicrawl-macos-arm64
+            dist/aicrawl-macos-arm64.sha256
 
-      - name: Release summary
-        shell: pwsh
+      - name: Summary
+        shell: bash
         run: |
-          @"
-          ### AICrawl release published
-
-          - Tag: ${{ github.event.inputs.tag || github.ref_name }}
-          - Asset: aicrawl-windows-x64.exe
-          - Checksum: aicrawl-windows-x64.exe.sha256
-          - Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
-          "@ | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          {
+            echo "### Released ${{ needs.prepare.outputs.tag }}"
+            echo ""
+            echo "| Platform | Asset |"
+            echo "| --- | --- |"
+            echo "| Windows x64 | \`aicrawl-windows-x64.exe\` |"
+            echo "| Linux x64 | \`aicrawl-linux-x64\` |"
+            echo "| macOS Intel | \`aicrawl-macos-x64\` |"
+            echo "| macOS Apple Silicon | \`aicrawl-macos-arm64\` |"
+            echo ""
+            echo "Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } >> "$GITHUB_STEP_SUMMARY"

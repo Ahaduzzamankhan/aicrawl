@@ -1,7 +1,7 @@
 # Contributing to AICrawl
 
 Thanks for helping improve AICrawl. This project is an **experimental** release
-(`0.0.1-experimental.1`), so APIs, CLI flags and the database schema may change
+(`0.0.1-experimental.2`), so APIs, CLI flags and the database schema may change
 before a stable release.
 
 By participating you agree to follow the [Code of Conduct](CODE_OF_CONDUCT.md).

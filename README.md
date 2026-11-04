@@ -6,28 +6,29 @@
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Ahaduzzamankhan/aicrawl/ci.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=CI)](https://github.com/Ahaduzzamankhan/aicrawl/actions/workflows/ci.yml)
 [![Release](https://img.shields.io/github/v/release/Ahaduzzamankhan/aicrawl?include_prereleases&style=for-the-badge&logo=github&logoColor=white&label=release&color=7C3AED)](https://github.com/Ahaduzzamankhan/aicrawl/releases)
-[![Download](https://img.shields.io/badge/download-Windows%20x64-0078D6?style=for-the-badge&logo=windows&logoColor=white)](https://github.com/Ahaduzzamankhan/aicrawl/releases/tag/v0.0.1-experimental.1)
+[![Download](https://img.shields.io/badge/download-all%20platforms-0078D6?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Ahaduzzamankhan/aicrawl/releases)
+[![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux%20%7C%20macOS-0EA5E9?style=for-the-badge)](https://github.com/Ahaduzzamankhan/aicrawl/releases)
 [![License](https://img.shields.io/badge/license-MIT-22C55E?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-CE422B?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![MCP](https://img.shields.io/badge/MCP-ready-0EA5E9?style=for-the-badge)](https://modelcontextprotocol.io)
 [![PRs](https://img.shields.io/badge/PRs-welcome-EC4899?style=for-the-badge&logo=git&logoColor=white)](CONTRIBUTING.md)
-[![Stars](https://img.shields.io/github/stars/Ahaduzzamankhan/aicrawl?style=for-the-badge&logo=github&color=F59E0B)](https://github.com/Ahaduzzamankhan/aicrawl/stargazers)
 
-[Quick start](#quick-start) · [MCP server](#ai-agents-mcp) · [REST API](#rest-api) · [Dashboard](#dashboard) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
+**Read this in:** [English](README.md) · [বাংলা](README.bn.md) · [हिन्दी](README.hi.md) · [Español](README.es.md) · [Nederlands](README.nl.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [Русский](README.ru.md)
+
+[Quick start](#quick-start) · [Download](#download) · [MCP server](#ai-agents-mcp) · [REST API](#rest-api) · [Dashboard](#dashboard) · [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
 </div>
 
 A single executable that lets **AI agents** and **humans** crawl permitted
 websites and extract structured data.
 
-> **Experimental release:** `0.0.1-experimental.1`. Interfaces and storage may
-> change between experimental builds; do not rely on it for unattended
-> production crawling yet.
+> **Experimental release:** the current version lives in
+> [`version.json`](version.json). Interfaces and storage may change between
+> experimental builds; do not rely on it for unattended production crawling yet.
 
-**Prebuilt Windows x64 binary:**
-[aicrawl-windows-x64.exe](https://github.com/Ahaduzzamankhan/aicrawl/releases/download/v0.0.1-experimental.1/aicrawl-windows-x64.exe) ·
-[checksum](https://github.com/Ahaduzzamankhan/aicrawl/releases/download/v0.0.1-experimental.1/aicrawl-windows-x64.exe.sha256) ·
-[all releases](https://github.com/Ahaduzzamankhan/aicrawl/releases)
+Prebuilt binaries for **Windows x64, Linux x64, macOS Intel and macOS Apple
+Silicon** are attached to every [release](https://github.com/Ahaduzzamankhan/aicrawl/releases),
+together with SHA-256 checksums.
 
 One `aicrawl` binary contains:
 
@@ -47,6 +48,42 @@ out of the box. If you configure an external OpenAI-compatible endpoint or a
 local Ollama server, semantic extraction becomes available; otherwise MCP
 returns the cleaned page content and structured hints for the calling agent to
 reason over.
+
+## Download
+
+Prebuilt binaries are attached to every [release](https://github.com/Ahaduzzamankhan/aicrawl/releases).
+Open the newest release and download the asset for your platform:
+
+| Platform | Asset |
+| --- | --- |
+| Windows x64 | `aicrawl-windows-x64.exe` |
+| Linux x64 | `aicrawl-linux-x64` |
+| macOS Intel (x64) | `aicrawl-macos-x64` |
+| macOS Apple Silicon (arm64) | `aicrawl-macos-arm64` |
+
+Each binary has a matching `.sha256` checksum file. Verify it before running:
+
+```bash
+# Linux
+sha256sum -c aicrawl-linux-x64.sha256
+
+# macOS
+shasum -a 256 -c aicrawl-macos-arm64.sha256
+```
+
+```powershell
+# Windows
+Get-FileHash .\aicrawl-windows-x64.exe -Algorithm SHA256
+```
+
+Make the Unix binaries executable after downloading:
+
+```bash
+chmod +x aicrawl-linux-x64 aicrawl-macos-arm64
+```
+
+The binaries are self-contained: dashboard, migrations and SQLite are compiled
+in. Only optional JavaScript rendering needs external software.
 
 ## Quick start
 
@@ -253,6 +290,26 @@ cargo run -p aicrawl-cli -- doctor
 The dashboard is embedded at compile time. During UI work either use the Vite
 dev server or set `AICRAWL_DASHBOARD_DIR=frontend/dist` to serve a rebuild from
 disk without recompiling Rust.
+
+## Release and versioning
+
+[`version.json`](version.json) is the single source of truth for the release
+version. It drives two things:
+
+- the release tag (`v` + the version, for example `v0.0.1-experimental.2`)
+- the version compiled into the binary, shown by `aicrawl --version`,
+  `aicrawl version` and the MCP server
+
+To publish a release:
+
+1. Update `version.json` and the matching `version` in `Cargo.toml`, then merge
+   to `main`.
+2. Wait for the automatic **CI** workflow to pass on Windows, Linux and macOS.
+3. Run **Actions → Release → Run workflow** manually. The workflow creates the
+   tag, builds all four binaries, verifies their embedded version and uploads
+   them with SHA-256 checksums.
+
+Versions containing a hyphen (`-`) are published as prereleases.
 
 ## Limitations
 

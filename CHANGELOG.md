@@ -14,6 +14,26 @@ Pre-`1.0.0` experimental builds may contain breaking changes.
 - Packaging and signed release artifacts.
 - Additional documentation and examples for agent integrations.
 
+## [0.0.1-experimental.2] - 2026-11-04
+
+### Added
+
+- Translated READMEs in Bengali, Hindi, Spanish, Dutch, Chinese, Japanese and
+  Russian, with a language selector on every page.
+- `version.json` as the single source of truth for the release version.
+- Manual **Release** workflow that creates the tag from `version.json`, builds
+  Windows, Linux and macOS binaries and publishes them with SHA-256 checksums.
+- Prebuilt Linux x64, macOS Intel and macOS Apple Silicon binaries alongside the
+  existing Windows x64 build.
+
+### Changed
+
+- The version embedded in release binaries, the CLI/MCP server version and the
+  default crawler user agent now come from `version.json` at build time.
+- Automatic CI now runs tests and a release build on Windows, Linux and macOS
+  for every push and pull request, with formatting and lint checks on Linux.
+- Corrected the crawler user-agent repository URL.
+
 ## [0.0.1-experimental.1] - 2026-11-04
 
 ### Added
@@ -54,5 +74,6 @@ Pre-`1.0.0` experimental builds may contain breaking changes.
 - Semantic extraction quality depends on the configured external provider.
 - The project does not bypass authentication, paywalls or CAPTCHAs.
 
-[Unreleased]: https://github.com/Ahaduzzamankhan/aicrawl/compare/v0.0.1-experimental.1...HEAD
+[Unreleased]: https://github.com/Ahaduzzamankhan/aicrawl/compare/v0.0.1-experimental.2...HEAD
+[0.0.1-experimental.2]: https://github.com/Ahaduzzamankhan/aicrawl/releases/tag/v0.0.1-experimental.2
 [0.0.1-experimental.1]: https://github.com/Ahaduzzamankhan/aicrawl/releases/tag/v0.0.1-experimental.1

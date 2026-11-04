@@ -95,8 +95,8 @@ impl Default for CrawlerConfig {
             max_text_chars: 60_000,
             max_crawl_secs: 180,
             user_agent: format!(
-                "AICrawl/{} (+https://github.com/aicrawl/aicrawl; AI extraction bot)",
-                env!("CARGO_PKG_VERSION")
+                "AICrawl/{} (+https://github.com/Ahaduzzamankhan/aicrawl; AI extraction bot)",
+                crate::VERSION
             ),
             respect_robots_txt: true,
             same_domain: true,

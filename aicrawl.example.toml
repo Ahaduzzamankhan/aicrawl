@@ -17,7 +17,7 @@ max_body_bytes = 3145728 # 3 MiB
 max_text_chars = 60000
 max_crawl_secs = 180
 # Change the contact URL to your own deployment when you fork AICrawl.
-user_agent = "AICrawl/0.0.1-experimental.1 (+https://github.com/Ahaduzzamankhan/aicrawl; AI extraction bot)"
+user_agent = "AICrawl/0.0.1-experimental.2 (+https://github.com/Ahaduzzamankhan/aicrawl; AI extraction bot)"
 respect_robots_txt = true
 same_domain = true
 

@@ -53,7 +53,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow.
 ## Releases
 
 AICrawl uses Semantic Versioning with an experimental pre-release suffix, for
-example `0.0.1-experimental.1`. Before `1.0.0`, breaking changes may appear in
+example `0.0.1-experimental.2`. Before `1.0.0`, breaking changes may appear in
 minor or experimental builds and are documented in the changelog.
 
 Release process:

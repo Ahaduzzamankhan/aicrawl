@@ -262,7 +262,7 @@ async fn root_info(State(engine): State<Arc<AicrawlEngine>>) -> Json<Value> {
         "api": "/api/v1",
         "dashboard": "not embedded in this build (build the frontend, then rebuild the binary)",
         "mcp": format!("http://{}:{}/mcp", engine.config().server.mcp_host, engine.config().server.mcp_port),
-        "docs": "https://github.com/aicrawl/aicrawl#readme",
+        "docs": "https://github.com/Ahaduzzamankhan/aicrawl#readme",
         "auth_required": engine.config().api.require_api_key,
     }))
 }

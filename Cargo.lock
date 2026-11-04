@@ -43,7 +43,7 @@ dependencies = [
 
 [[package]]
 name = "aicrawl-cli"
-version = "0.0.1-experimental.1"
+version = "0.0.1-experimental.2"
 dependencies = [
  "aicrawl-core",
  "anyhow",
@@ -65,7 +65,7 @@ dependencies = [
 
 [[package]]
 name = "aicrawl-core"
-version = "0.0.1-experimental.1"
+version = "0.0.1-experimental.2"
 dependencies = [
  "anyhow",
  "async-trait",

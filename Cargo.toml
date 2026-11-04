@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/aicrawl-core", "crates/aicrawl-cli"]
 
 [workspace.package]
-version = "0.0.1-experimental.1"
+version = "0.0.1-experimental.2"
 edition = "2021"
 rust-version = "1.88"
 license = "MIT"
@@ -11,7 +11,7 @@ authors = ["AICrawl Contributors"]
 repository = "https://github.com/Ahaduzzamankhan/aicrawl"
 
 [workspace.dependencies]
-aicrawl-core = { path = "crates/aicrawl-core", version = "0.0.1-experimental.1" }
+aicrawl-core = { path = "crates/aicrawl-core", version = "0.0.1-experimental.2" }
 anyhow = "1.0"
 async-trait = "0.1"
 axum = "0.8"

@@ -13,7 +13,7 @@ use clap::{Parser, Subcommand};
 #[derive(Debug, Parser)]
 #[command(
     name = "aicrawl",
-    version,
+    version = aicrawl_core::VERSION,
     about = "AI-powered web extraction engine",
     long_about = "Crawl permitted websites and extract structured data for humans, scripts and AI agents.\n\n\
 Examples:\n  aicrawl extract https://example.com --query \"Extract product names and prices\"\n  aicrawl crawl https://example.com --max-pages 20\n  aicrawl inspect https://example.com\n  aicrawl start\n  aicrawl mcp stdio",

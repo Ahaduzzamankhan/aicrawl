@@ -25,5 +25,5 @@ pub use engine::AicrawlEngine;
 pub use error::{AicrawlError, Result};
 pub use extractor::{ExtractOutcome, ExtractRequest};
 
-/// Crate version, surfaced by the CLI and MCP server.
-pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+/// Release version from `version.json`, surfaced by the CLI and MCP server.
+pub const VERSION: &str = env!("AICRAWL_VERSION");

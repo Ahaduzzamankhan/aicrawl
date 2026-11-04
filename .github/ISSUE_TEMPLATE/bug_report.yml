@@ -31,7 +31,7 @@ body:
     attributes:
       label: AICrawl version
       description: Output of `aicrawl version` or the release tag.
-      placeholder: 0.0.1-experimental.1
+      placeholder: 0.0.1-experimental.2
     validations:
       required: true
 
