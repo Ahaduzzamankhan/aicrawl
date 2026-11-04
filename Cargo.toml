@@ -32,7 +32,7 @@ rmcp = { version = "3.8", features = ["server", "macros", "transport-io", "trans
 scraper = "0.29"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-sha2 = "0.10"
+sha2 = "0.11"
 sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite", "migrate", "macros", "json"] }
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
