@@ -183,7 +183,7 @@ Configure a provider in **Dashboard → AI Providers** or via the API:
 - Ollama: base URL (`http://127.0.0.1:11434`), model, no key
 
 API keys are encrypted with ChaCha20-Poly1305. The encryption key comes from
-`AICRAWL_SECRET_KEY` (64 hex characters) or is generated once at
+`AICRAWL_SECRET_KEY` (a base64-encoded 32-byte key) or is generated once at
 `<data-dir>/secret.key` with owner-only permissions. Plaintext keys are never
 written to SQLite, logs or the dashboard.
 
