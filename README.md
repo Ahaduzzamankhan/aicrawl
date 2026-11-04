@@ -25,8 +25,8 @@ websites and extract structured data.
 > production crawling yet.
 
 **Prebuilt Windows x64 binary:**
-[aicrawl-windows-x64.exe](https://github.com/Ahaduzzamankhan/aicrawl/releases/tag/v0.0.1-experimental.1) ·
-[checksum](https://github.com/Ahaduzzamankhan/aicrawl/releases/tag/v0.0.1-experimental.1) ·
+[aicrawl-windows-x64.exe](https://github.com/Ahaduzzamankhan/aicrawl/releases/download/v0.0.1-experimental.1/aicrawl-windows-x64.exe) ·
+[checksum](https://github.com/Ahaduzzamankhan/aicrawl/releases/download/v0.0.1-experimental.1/aicrawl-windows-x64.exe.sha256) ·
 [all releases](https://github.com/Ahaduzzamankhan/aicrawl/releases)
 
 One `aicrawl` binary contains:
