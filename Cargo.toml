@@ -37,7 +37,7 @@ sqlx = { version = "0.9", features = ["runtime-tokio", "sqlite", "migrate", "mac
 thiserror = "2"
 tokio = { version = "1", features = ["full"] }
 tokio-util = { version = "0.7", features = ["rt"] }
-toml = "0.9"
+toml = "1.1"
 tower = "0.5"
 tower-http = { version = "0.7", features = ["cors", "trace", "fs", "limit", "set-header"] }
 tracing = "0.1"
