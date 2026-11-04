@@ -200,11 +200,9 @@ fn node_value(
             }
         }
         RuleKind::Url => {
+            let name = rule.attribute.as_deref().unwrap_or("href");
             let raw = match node.element() {
-                Some(element) => match rule.attribute.as_deref() {
-                    Some(name) => selectors::attribute_of(&element, name),
-                    None => Some(selectors::text_of(&element)),
-                },
+                Some(element) => selectors::attribute_of(&element, name),
                 None => node.literal().map(str::to_string),
             };
             raw.map(|value| transform::absolutize(&value, ctx.base))
