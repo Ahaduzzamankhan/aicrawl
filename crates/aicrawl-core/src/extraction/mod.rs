@@ -166,9 +166,9 @@ fn finish_scalar(
 ) -> (Value, Vec<Issue>) {
     let mut issues = Vec::new();
     let Some(raw) = raw else {
-        if rule.required {
-            issues.push(Issue::not_found(path, true));
-        }
+        // Optional misses are reported too, so callers can tell "absent" from
+        // "present but empty" without the request failing.
+        issues.push(Issue::not_found(path, rule.required));
         return (default_value(rule), issues);
     };
     let (value, mut conversion_issues) = coerce(raw, rule, path, ctx);
@@ -221,8 +221,8 @@ fn node_value(
     };
 
     let Some(raw) = raw else {
-        if rule.required && report {
-            issues.push(Issue::not_found(path, true));
+        if report {
+            issues.push(Issue::not_found(path, rule.required));
         }
         return (default_value(rule), issues);
     };
@@ -612,10 +612,15 @@ mod tests {
             assert_eq!(data["name"], Value::Null);
             assert_eq!(data["optional"], Value::Null);
             assert_eq!(data["fallback"], "unknown");
-            assert_eq!(issues.len(), 1);
-            assert_eq!(issues[0].code, "SELECTOR_NOT_FOUND");
-            assert_eq!(issues[0].field, "name");
-            assert!(issues[0].required);
+            assert_eq!(issues.len(), 3);
+            for (field, required) in [("name", true), ("optional", false), ("fallback", false)] {
+                let issue = issues
+                    .iter()
+                    .find(|issue| issue.field == field)
+                    .unwrap_or_else(|| panic!("missing issue for {field}"));
+                assert_eq!(issue.code, "SELECTOR_NOT_FOUND");
+                assert_eq!(issue.required, required, "{field}");
+            }
         });
     }
 
