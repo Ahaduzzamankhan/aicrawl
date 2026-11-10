@@ -11,6 +11,7 @@
 [![License](https://img.shields.io/badge/license-MIT-22C55E?style=for-the-badge&logo=opensourceinitiative&logoColor=white)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.88%2B-CE422B?style=for-the-badge&logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![MCP](https://img.shields.io/badge/MCP-10%20tools-0EA5E9?style=for-the-badge)](https://modelcontextprotocol.io)
+[![M8ven Score](https://m8ven.ai/badge/mcp/ahaduzzamankhan-aicrawl-1vyaeb?v=5370263b06ca8a087a3adde05ceaacc0)](https://m8ven.ai/mcp/ahaduzzamankhan-aicrawl-1vyaeb?s=readme)
 
 **Read this in:** [English](README.md) · [বাংলা](README.bn.md) · [हिन्दी](README.hi.md) · [Español](README.es.md) · [Nederlands](README.nl.md) · [简体中文](README.zh-CN.md) · [日本語](README.ja.md) · [Русский](README.ru.md)
 
