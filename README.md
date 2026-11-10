@@ -323,3 +323,13 @@ MIT — see [LICENSE](LICENSE).
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=ahaduzzamankhan/aicrawl&type=date&legend=top-left" />
  </picture>
 </a>
+
+---
+
+## Contributors
+
+Thanks to everyone who contributes to AICrawl.
+
+<a href="https://github.com/Ahaduzzamankhan/aicrawl/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Ahaduzzamankhan/aicrawl&max=400&columns=18" alt="AICrawl contributors" />
+</a>
